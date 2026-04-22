@@ -1,0 +1,111 @@
+# ==============================================================================
+# 1215-vps Caddy — public routing for the prototype-local stack
+# ==============================================================================
+# Modeled on agent-os/stack/Caddyfile.pimpshizzle and aligned with the existing
+# pimpshizzle.com DNS records (no registrar work needed for first deploy).
+# Apex {$DOMAIN} is intentionally NOT routed — reserved for a future landing
+# page; Caddy returns its default 200 on bare-apex hits in the meantime.
+#
+# Subdomain repurposing (existing DNS, 1215 service):
+#   flow.   -> Paperclip ("flow" = company orchestration)
+#   brain.  -> Hermes Agent dashboard (Donna's brain — API keys / skills / sessions)
+#   graph.  -> Qdrant dashboard (vector index)
+#   search. -> n8n-mcp (MCP discovery surface)
+#
+# Required env vars (rendered from stack/prototype-local/.env):
+#   DOMAIN        — apex domain (e.g. pimpshizzle.com)
+#   CADDY_EMAIL   — Let's Encrypt registration email
+#
+# Paperclip exception: Paperclip uses `network_mode: host` (see substrate
+# compose for rationale), so it is unreachable by container DNS. Caddy reaches
+# it via host.docker.internal:3100 — extra_hosts wires the host-gateway alias
+# in the caddy service definition.
+# ==============================================================================
+
+{
+	email {$CADDY_EMAIL}
+}
+
+# ------------------------------------------------------------------------------
+# Chat / LLM front door
+# ------------------------------------------------------------------------------
+ai.{$DOMAIN} {
+	reverse_proxy open-webui:8080
+}
+
+# ------------------------------------------------------------------------------
+# Workflow automation
+# ------------------------------------------------------------------------------
+n8n.{$DOMAIN} {
+	reverse_proxy n8n:5678
+}
+
+# ------------------------------------------------------------------------------
+# LLM observability
+# ------------------------------------------------------------------------------
+trace.{$DOMAIN} {
+	reverse_proxy langfuse-web:3000
+}
+
+# ------------------------------------------------------------------------------
+# Paperclip orchestration workbench
+# ------------------------------------------------------------------------------
+# Paperclip uses `network_mode: host` and runs in `local_trusted` mode, which
+# binds to 127.0.0.1 only and rejects non-loopback source IPs. The
+# `paperclip-bridge.service` systemd unit runs socat on 172.18.0.1:3100 and
+# forwards to 127.0.0.1:3100, so from Paperclip's POV the source is always
+# loopback. UFW rule `172.18.0.0/16 -> :3100` is the only ingress to the
+# bridge; internet is still blocked from 3100 directly.
+flow.{$DOMAIN} {
+	reverse_proxy host.docker.internal:3100
+}
+
+# ------------------------------------------------------------------------------
+# Hermes Agent dashboard (Donna) — API keys, skills, sessions, cron, logs
+# ------------------------------------------------------------------------------
+# Served by `hermes dashboard` (systemd unit hermes-dashboard.service, port 9119,
+# bound to 0.0.0.0 because `--insecure` is required for off-loopback binds so
+# Caddy on the bridge network can reach it via host.docker.internal). UFW blocks
+# 9119 externally, so the dashboard is only reachable through Caddy.
+#
+# SECURITY NOTE: the dashboard's index.html embeds a per-request session token —
+# there is no password wall. Anyone who GETs this URL gets a live API-key
+# management session. This is acceptable for the prototype ("just-while-we-
+# set-things-up" per user directive 2026-04-21) and will be replaced by a
+# tailnet-only binding when Tailscale lands. Do not leak the subdomain in the
+# meantime.
+brain.{$DOMAIN} {
+	reverse_proxy host.docker.internal:9119
+}
+
+# ------------------------------------------------------------------------------
+# n8n MCP bridge (programmatic workflow authoring surface)
+# ------------------------------------------------------------------------------
+search.{$DOMAIN} {
+	reverse_proxy n8n-mcp:3000
+}
+
+# ------------------------------------------------------------------------------
+# Knowledge graph
+# ------------------------------------------------------------------------------
+neo4j.{$DOMAIN} {
+	reverse_proxy neo4j:7474
+}
+
+# ------------------------------------------------------------------------------
+# Vector store dashboard
+# ------------------------------------------------------------------------------
+graph.{$DOMAIN} {
+	reverse_proxy qdrant:6333
+}
+
+# ------------------------------------------------------------------------------
+# Object storage
+# ------------------------------------------------------------------------------
+minio.{$DOMAIN} {
+	reverse_proxy minio:9001
+}
+
+s3.{$DOMAIN} {
+	reverse_proxy minio:9000
+}

@@ -1,0 +1,554 @@
+name: 1215-prototype-local
+
+services:
+  broker:
+    build:
+      context: ../broker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      broker-bootstrap:
+        condition: service_completed_successfully
+    environment:
+      BROKER_DATABASE_HOST: postgres
+      BROKER_DATABASE_PORT: 5432
+      BROKER_DATABASE_NAME: postgres
+      BROKER_DATABASE_USER: postgres
+      BROKER_DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-prototype-postgres}
+      BROKER_SERVICE_NAME: prototype-broker
+    ports:
+      - "127.0.0.1:8090:8090"
+
+  broker-bootstrap:
+    # pgvector/pgvector:pg17 (same image as postgres so psql client matches)
+    # Applies stack/sql/broker/*.sql (idempotent: schema uses IF NOT EXISTS and
+    # ON CONFLICT DO NOTHING). Added in Phase D — the broker never self-migrated
+    # and Phase D's acceptance needs broker.events to exist for run.created/
+    # /completed publication.
+    image: pgvector/pgvector@sha256:494dff7e67e7bc2c826b94c331364978d145ebb86fd338154138b084223b7f67
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-prototype-postgres}
+    volumes:
+      - ../sql/broker:/sql/broker:ro
+    entrypoint: /bin/sh
+    command:
+      - -ec
+      - >
+        until pg_isready -h postgres -U postgres; do sleep 1; done
+        &&
+        for f in /sql/broker/*.sql; do
+          echo "applying $$f";
+          psql -h postgres -U postgres -d postgres -v ON_ERROR_STOP=1 -f "$$f";
+        done
+
+  postgres:
+    # pgvector/pgvector:pg17 (drop-in Postgres 17 + pgvector; swapped in Phase B to support host-native Honcho)
+    image: pgvector/pgvector@sha256:494dff7e67e7bc2c826b94c331364978d145ebb86fd338154138b084223b7f67
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-prototype-postgres}
+      POSTGRES_DB: postgres
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - prototype_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  postgres-bootstrap:
+    # pgvector/pgvector:pg17 (matches the substrate postgres image so psql/createdb versions line up)
+    image: pgvector/pgvector@sha256:494dff7e67e7bc2c826b94c331364978d145ebb86fd338154138b084223b7f67
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-prototype-postgres}
+      LANGFUSE_DATABASE_NAME: ${LANGFUSE_DATABASE_NAME:-langfuse}
+      HONCHO_DATABASE_NAME: ${HONCHO_DATABASE_NAME:-honcho}
+    entrypoint: /bin/sh
+    command:
+      - -ec
+      - >
+        until pg_isready -h postgres -U postgres; do sleep 1; done
+        &&
+        if ! psql -h postgres -U postgres -d postgres -Atqc "select 1 from pg_database where datname = '$${LANGFUSE_DATABASE_NAME}'" | grep -q 1; then
+          createdb -h postgres -U postgres "$${LANGFUSE_DATABASE_NAME}";
+        fi
+        &&
+        if ! psql -h postgres -U postgres -d postgres -Atqc "select 1 from pg_database where datname = '$${HONCHO_DATABASE_NAME}'" | grep -q 1; then
+          createdb -h postgres -U postgres "$${HONCHO_DATABASE_NAME}";
+        fi
+        &&
+        psql -h postgres -U postgres -d "$${HONCHO_DATABASE_NAME}" -c "CREATE EXTENSION IF NOT EXISTS vector;"
+
+  valkey:
+    # docker.io/valkey/valkey:8-alpine
+    image: docker.io/valkey/valkey@sha256:1cb6b20b70d927560cc4cc5397b5f045e74aa603ff7696274778880bb6fadc75
+    restart: unless-stopped
+    command: valkey-server --save 30 1 --loglevel warning
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - prototype_valkey_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 10s
+      retries: 10
+
+  minio:
+    # minio/minio (resolved 2026-04-21)
+    image: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    restart: unless-stopped
+    entrypoint: sh
+    command: -c 'mkdir -p /data/langfuse /data/artifacts && minio server --address ":9000" --console-address ":9001" /data'
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-prototype-minio-password}
+    ports:
+      - "127.0.0.1:9010:9000"
+      - "127.0.0.1:9011:9001"
+    volumes:
+      - prototype_minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  minio-init:
+    # minio/mc (resolved 2026-04-21)
+    image: minio/mc@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - >
+        mc alias set local http://minio:9000 minio ${MINIO_ROOT_PASSWORD:-prototype-minio-password}
+        &&
+        mc mb --ignore-existing local/langfuse
+        &&
+        mc mb --ignore-existing local/artifacts
+        &&
+        mc anonymous set download local/artifacts
+
+  shared-data-init:
+    # busybox:1.36
+    image: busybox@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662
+    restart: "no"
+    command:
+      - sh
+      - -c
+      - >
+        mkdir -p /data/shared/prototype-media
+        &&
+        chmod 0777 /data/shared
+        &&
+        chmod 0777 /data/shared/prototype-media
+    volumes:
+      - prototype_shared_data:/data/shared
+
+  qdrant:
+    # qdrant/qdrant (resolved 2026-04-21)
+    image: qdrant/qdrant@sha256:94728574965d17c6485dd361aa3c0818b325b9016dac5ea6afec7b4b2700865f
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:6334:6334"
+    volumes:
+      - prototype_qdrant_data:/qdrant/storage
+
+  neo4j:
+    # neo4j:latest (resolved 2026-04-21)
+    image: neo4j@sha256:9c69be81edc3e2139b64be5d1486b8305bd5ed4a080fbeee5c013aa773918e76
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: ${NEO4J_AUTH:-neo4j/prototype-password}
+    ports:
+      - "127.0.0.1:7474:7474"
+      - "127.0.0.1:7473:7473"
+      - "127.0.0.1:7687:7687"
+    volumes:
+      - prototype_neo4j_logs:/logs
+      - prototype_neo4j_config:/config
+      - prototype_neo4j_data:/data
+      - prototype_neo4j_plugins:/plugins
+
+  clickhouse:
+    # clickhouse/clickhouse-server (resolved 2026-04-21)
+    image: clickhouse/clickhouse-server@sha256:537014a67ce8bf1f5c79c2e2b26fb30b8285a86ffff03875bb14ed17ea35db62
+    restart: unless-stopped
+    user: "101:101"
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: clickhouse
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-prototype-clickhouse-password}
+    ports:
+      - "127.0.0.1:8123:8123"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9009:9009"
+    volumes:
+      - prototype_clickhouse_data:/var/lib/clickhouse
+      - prototype_clickhouse_logs:/var/log/clickhouse-server
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 1s
+
+  langfuse-worker:
+    # langfuse/langfuse-worker:3
+    image: langfuse/langfuse-worker@sha256:f8a9eb480b31cc513ad9ed9869eeb3416cb7bdf00c598665c008c460566115d1
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3030:3030"
+    environment: &langfuse_env
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-prototype-postgres}@postgres:5432/${LANGFUSE_DATABASE_NAME:-langfuse}
+      SALT: ${LANGFUSE_SALT:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      TELEMETRY_ENABLED: "true"
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "true"
+      CLICKHOUSE_MIGRATION_URL: clickhouse://clickhouse:9000
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_USER: clickhouse
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-prototype-clickhouse-password}
+      CLICKHOUSE_CLUSTER_ENABLED: "false"
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: minio
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-prototype-minio-password}
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
+      LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: langfuse
+      LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
+      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: minio
+      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-prototype-minio-password}
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: media/
+      LANGFUSE_S3_BATCH_EXPORT_ENABLED: "false"
+      LANGFUSE_S3_BATCH_EXPORT_BUCKET: langfuse
+      LANGFUSE_S3_BATCH_EXPORT_PREFIX: exports/
+      LANGFUSE_S3_BATCH_EXPORT_REGION: auto
+      LANGFUSE_S3_BATCH_EXPORT_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_BATCH_EXPORT_EXTERNAL_ENDPOINT: http://127.0.0.1:9010
+      LANGFUSE_S3_BATCH_EXPORT_ACCESS_KEY_ID: minio
+      LANGFUSE_S3_BATCH_EXPORT_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-prototype-minio-password}
+      LANGFUSE_S3_BATCH_EXPORT_FORCE_PATH_STYLE: "true"
+      REDIS_HOST: valkey
+      REDIS_PORT: 6379
+      REDIS_AUTH: ""
+      REDIS_TLS_ENABLED: "false"
+
+  langfuse-web:
+    # langfuse/langfuse:3
+    image: langfuse/langfuse@sha256:cdfdca609912edffd616503e43427395fcf135423422440d74c89d9d552b74f9
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      <<: *langfuse_env
+      NEXTAUTH_URL: http://127.0.0.1:3000
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-prototype-nextauth-secret}
+      # LANGFUSE_INIT_* auto-seeds an org / project / user / API keys on
+      # first boot so Phase G (Langfuse instrumentation) has a ready
+      # target without a manual browser signup. Re-setting these on a
+      # running instance is safe; Langfuse skips resources that already
+      # exist. The prototype PUBLIC/SECRET keys are non-secret fixtures
+      # — rotate via the Langfuse UI for anything beyond the prototype.
+      LANGFUSE_INIT_ORG_ID: prototype-org
+      LANGFUSE_INIT_ORG_NAME: Prototype Org
+      LANGFUSE_INIT_PROJECT_ID: prototype-1215
+      LANGFUSE_INIT_PROJECT_NAME: 1215 Continuity Plane
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-pk-lf-1215-prototype-public}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-sk-lf-1215-prototype-secret}
+      LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_INIT_USER_EMAIL:-prototype-owner@example.local}
+      LANGFUSE_INIT_USER_NAME: ${LANGFUSE_INIT_USER_NAME:-Prototype Owner}
+      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD:-prototype-langfuse-password}
+
+  open-webui:
+    # v0.9.0 (2026-04-21)
+    image: ${OPEN_WEBUI_IMAGE:-ghcr.io/open-webui/open-webui@sha256:eb874c0530209dd5ca21a4d0a7cc42e69f2ee85f0e7b90ae94659cd415c27c6d}
+    restart: unless-stopped
+    depends_on:
+      broker:
+        condition: service_started
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      # OWU chat path points at OpenRouter (matches Paperclip's OPENAI_API_KEY
+      # wiring — one provider for the whole stack). OWU supports
+      # semicolon-separated lists if you ever want to add more endpoints.
+      # Default model is cheap-and-fast for everyday chat; swap per-conversation
+      # in the UI. n8n pipes (`prototype_n8n_pipe`, `prototype_comfyui_pipe`)
+      # continue to ride OWU function routing for their action workflows.
+      OPENAI_API_BASE_URLS: https://openrouter.ai/api/v1
+      OPENAI_API_KEYS: ${OPENROUTER_API_KEY:-}
+      ENABLE_OPENAI_API: "true"
+      DEFAULT_MODELS: ${OPEN_WEBUI_DEFAULT_MODEL:-google/gemini-2.5-flash}
+    volumes:
+      - prototype_open_webui_data:/app/backend/data
+
+  comfyui:
+    image: ${COMFYUI_IMAGE:-ghcr.io/lecode-official/comfyui-docker@sha256:e27739fc19d577d694ea99846a6c602e06dac963bebb2f056e22d97d19c392dd}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8188:8188"
+    environment:
+      USER_ID: ${COMFYUI_USER_ID:-1000}
+      GROUP_ID: ${COMFYUI_GROUP_ID:-1000}
+    command: ["--cpu", "--enable-cors-header", "*"]
+    volumes:
+      - prototype_comfyui_models:/opt/comfyui/models
+      - prototype_comfyui_custom_nodes:/opt/comfyui/custom_nodes
+      - prototype_comfyui_output:/opt/comfyui/output
+      - prototype_shared_data:/data/shared
+
+  n8n:
+    build:
+      context: ./n8n
+      args:
+        N8N_BASE_IMAGE: ${N8N_BASE_IMAGE:-n8nio/n8n:2.3.6}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      shared-data-init:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:5678:5678"
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_USER: postgres
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-prototype-postgres}
+      DB_POSTGRESDB_DATABASE: postgres
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-prototype-n8n-encryption-key}
+      N8N_USER_MANAGEMENT_JWT_SECRET: ${N8N_USER_MANAGEMENT_JWT_SECRET:-prototype-n8n-jwt-secret}
+      NODES_EXCLUDE: "[]"
+      N8N_RESTRICT_FILE_ACCESS_TO: /home/node/.n8n-files;/data/shared
+      N8N_BLOCK_FILE_ACCESS_TO_N8N_FILES: "false"
+      WEBHOOK_URL: http://127.0.0.1:5678
+    volumes:
+      - prototype_n8n_data:/home/node/.n8n
+      - prototype_shared_data:/data/shared
+
+  paperclip:
+    # Paperclip orchestration workbench.
+    #
+    # Build context is the modules/paperclip submodule; USER_UID/USER_GID
+    # are baked in at build time so the in-container `node` user matches
+    # the host user (1000) and can read the gateway UDS. Runtime
+    # overrides are also honoured by scripts/docker-entrypoint.sh.
+    #
+    # ---- Network deviation from roadmap.md Phase E ----
+    # The Phase E roadmap language says "Port: 127.0.0.1:3100 -> 3100"
+    # (a bridge-network port publish). We instead put Paperclip on the
+    # HOST network for the prototype because:
+    #   * Paperclip only supports two deployment modes,
+    #     ``local_trusted`` and ``authenticated``. The single-operator
+    #     prototype explicitly wants ``local_trusted`` (no invite flow,
+    #     matches the "single specialist surface" seam in
+    #     docs/architecture/north-star.md).
+    #   * ``local_trusted`` enforces ``server.bind=loopback`` (see
+    #     modules/paperclip/server/src/config.ts ``validateConfiguredBindMode``),
+    #     which means the app binds to 127.0.0.1 inside its own netns.
+    #     On a bridge network that address is unreachable from the host,
+    #     so Docker port publishing doesn't work.
+    #   * Host networking makes "bind 127.0.0.1" mean "bind 127.0.0.1 on
+    #     the host", which is exactly what the acceptance check asks for.
+    #   * All Paperclip's outbound callers are already loopback-only:
+    #     - broker  -> http://127.0.0.1:8090 (published by the broker
+    #       service)
+    #     - gateway -> /run/user/1000/hermes-gateway/gateway.sock
+    #       (bind-mounted)
+    #   So host networking does not expand the network surface.
+    # When promoting this node beyond single-operator we flip back to a
+    # bridged network + ``authenticated`` deployment mode.
+    build:
+      context: ../../modules/paperclip
+      args:
+        USER_UID: ${PAPERCLIP_USER_UID:-1000}
+        USER_GID: ${PAPERCLIP_USER_GID:-1000}
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      broker:
+        condition: service_started
+    environment:
+      # Paperclip server config.
+      # HOST is explicit: Paperclip's Dockerfile defaults it to 0.0.0.0
+      # which ``local_trusted`` mode rejects; we pin to loopback.
+      HOST: 127.0.0.1
+      PORT: 3100
+      PAPERCLIP_INSTANCE_ID: ${PAPERCLIP_INSTANCE_ID:-default}
+      PAPERCLIP_DEPLOYMENT_MODE: ${PAPERCLIP_DEPLOYMENT_MODE:-local_trusted}
+      PAPERCLIP_DEPLOYMENT_EXPOSURE: ${PAPERCLIP_DEPLOYMENT_EXPOSURE:-private}
+      BETTER_AUTH_SECRET: ${PAPERCLIP_AUTH_SECRET:-paperclip-local-secret-1215}
+      # Paperclip uses OPENAI_API_KEY in its generic LLM path; prototype
+      # wires it to the OpenRouter-compatible key already in .env so the
+      # Hermes adapter and Paperclip's built-in adapters share creds.
+      OPENAI_API_KEY: ${OPENROUTER_API_KEY:-}
+      # Phase E contract: Paperclip reaches Hermes ONLY via the gateway
+      # UDS and the broker via loopback. Both are wired here; it is up
+      # to the Paperclip adapter layer (modules/paperclip/packages/adapters)
+      # to pick them up. These env vars are the public contract.
+      PAPERCLIP_HERMES_GATEWAY_SOCKET: /run/hermes-gateway/gateway.sock
+      PAPERCLIP_BROKER_URL: http://127.0.0.1:8090
+    volumes:
+      # Host-side gateway runtime dir bind-mounted RW so the in-container
+      # Paperclip can connect to the socket. The gateway socket itself is
+      # mode 0664 and the paperclip container runs as the same UID, so
+      # this grants connect-only access. Override HERMES_GATEWAY_SOCKET_DIR
+      # if running on a non-standard XDG_RUNTIME_DIR layout.
+      - "${HERMES_GATEWAY_SOCKET_DIR:-/run/user/1000/hermes-gateway}:/run/hermes-gateway:rw"
+      - prototype_paperclip_data:/paperclip
+    healthcheck:
+      test: ["CMD", "sh", "-c", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3100/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+
+  n8n-mcp:
+    # ghcr.io/czlonkowski/n8n-mcp:2.33.5
+    image: ghcr.io/czlonkowski/n8n-mcp@sha256:b8c0ef8f68cca13375490033d68ca5b8c6e2a82266879ff38f8fca50f0b70151
+    restart: unless-stopped
+    depends_on:
+      n8n:
+        condition: service_started
+    ports:
+      - "127.0.0.1:13000:3000"
+    environment:
+      MCP_MODE: http
+      AUTH_TOKEN: ${N8N_MCP_AUTH_TOKEN:-prototype-n8n-mcp-auth-token}
+      NODE_ENV: production
+      LOG_LEVEL: ${N8N_MCP_LOG_LEVEL:-info}
+      N8N_MCP_TELEMETRY_DISABLED: ${N8N_MCP_TELEMETRY_DISABLED:-true}
+      PORT: 3000
+      NODE_DB_PATH: /app/data/nodes.db
+      REBUILD_ON_START: ${N8N_MCP_REBUILD_ON_START:-false}
+      WEBHOOK_SECURITY_MODE: moderate
+      N8N_API_URL: http://n8n:5678
+      N8N_API_KEY: ${N8N_API_KEY:-}
+    volumes:
+      - prototype_n8n_mcp_data:/app/data
+    healthcheck:
+      test: ["CMD", "sh", "-c", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  caddy:
+    # Public reverse proxy + automatic Let's Encrypt TLS for the prototype
+    # stack. Modeled on cbass.space's subdomain convention (chat./n8n./
+    # langfuse./neo4j./qdrant.) plus 1215-only additions (paperclip./comfy./
+    # mcp./broker.). Apex {$DOMAIN} is intentionally unrouted so the human can
+    # claim it for a landing page later — Caddy will return its default 200 on
+    # bare-apex hits in the meantime.
+    #
+    # The Caddyfile is bind-mounted read-only; certs + Caddy state live in
+    # named volumes so renewals survive container recreate. The container
+    # joins the default compose network to reach service containers by DNS
+    # name (`n8n:5678`, `open-webui:8080`, ...). Host-native services (Paperclip
+    # on :3100, `hermes dashboard` on :9119) are reached via
+    # host.docker.internal.
+    #
+    # extra_hosts pins `host.docker.internal` to 172.18.0.1 — the gateway of
+    # the compose-created bridge (`1215-prototype-local_default`). The built-in
+    # `host-gateway` alias on Linux Docker resolves to docker0 (172.17.0.1),
+    # which is DOWN in this stack (no containers use the legacy bridge), so it
+    # must be pinned explicitly. If compose ever assigns a different /16 on
+    # rebuild, update this IP and the corresponding `ufw allow from` rule on
+    # the VPS (see Caddyfile hermes-dashboard section).
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+      CADDY_EMAIL: ${CADDY_EMAIL:-admin@example.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - prototype_caddy_data:/data
+      - prototype_caddy_config:/config
+    extra_hosts:
+      - "host.docker.internal:172.18.0.1"
+    healthcheck:
+      # Probe Caddy's admin API (always plain HTTP on 2019). Port 80 isn't a
+      # safe healthcheck target because Caddy redirects to HTTPS and busybox
+      # wget then trips on the host-header / cert mismatch from inside the
+      # container.
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:2019/config/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  prototype_postgres_data:
+  prototype_valkey_data:
+  prototype_minio_data:
+  prototype_qdrant_data:
+  prototype_neo4j_logs:
+  prototype_neo4j_config:
+  prototype_neo4j_data:
+  prototype_neo4j_plugins:
+  prototype_clickhouse_data:
+  prototype_clickhouse_logs:
+  prototype_open_webui_data:
+  prototype_comfyui_models:
+  prototype_comfyui_custom_nodes:
+  prototype_comfyui_output:
+  prototype_n8n_data:
+  prototype_n8n_mcp_data:
+  prototype_paperclip_data:
+  prototype_shared_data:
+  prototype_caddy_data:
+  prototype_caddy_config:

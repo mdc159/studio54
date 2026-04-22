@@ -1,0 +1,19 @@
+[Unit]
+# Tiny socat bridge so Caddy (bridge net) can reach Paperclip without breaking
+# its local_trusted contract. Listens on the compose-network gateway
+# (172.18.0.1:3100) and forwards to 127.0.0.1:3100 — from Paperclip's POV the
+# source IP is always loopback, so local_trusted is satisfied.
+# UFW rule (172.18.0.0/16 -> :3100) is the only way into the listener;
+# internet is still blocked from 3100 directly.
+Description=Paperclip Caddy bridge (172.18.0.1:3100 -> 127.0.0.1:3100)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/socat TCP-LISTEN:3100,bind=172.18.0.1,fork,reuseaddr TCP:127.0.0.1:3100
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

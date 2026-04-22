@@ -1,0 +1,20 @@
+[Unit]
+Description=Hermes Agent Web Dashboard (Donna)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Environment=HOME=/root
+Environment=PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# --insecure required to bind off-loopback so Caddy (bridge net) can reach via host.docker.internal:9119.
+# UFW blocks 9119 externally; only Caddy on 80/443 can reverse-proxy in.
+ExecStart=/root/.local/bin/hermes dashboard --host 0.0.0.0 --port 9119 --no-open --insecure
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/var/log/hermes-dashboard/stdout.log
+StandardError=append:/var/log/hermes-dashboard/stderr.log
+
+[Install]
+WantedBy=multi-user.target

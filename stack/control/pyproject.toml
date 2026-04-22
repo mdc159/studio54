@@ -1,0 +1,19 @@
+[project]
+name = "control-1215"
+version = "0.1.0"
+description = "Repo-owned control tooling for the 1215 architecture"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+start-1215 = "control1215.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["control1215*"]

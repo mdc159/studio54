@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+.pytest_cache/
+.mypy_cache/
+
+# UV
+stack/control/.venv/
+
+# Environment files
+stack/env/.env
+stack/env/rendered/*.env
+stack/prototype-local/.env
+
+# Docker
+supabase/               # upstream start_services.py clones here; we don't commit it
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Defensive env-file rules (added during studio54 split from 1215-vps).
+# stack/prototype-local/.env is already listed above; these catch the
+# variants that snuck through (.env.bak, .env.local, .env.backup, etc).
+.env
+.env.local
+.env.backup
+.env.bak
+*.env.bak
+*.env.local
+*.env.backup
+stack/**/.env
+stack/**/.env.bak
