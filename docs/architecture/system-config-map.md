@@ -20,12 +20,20 @@ Related documents:
 
 ## Primary Operator Contract
 
-The current canonical operator env for the app plane is:
+The canonical operator env in the repo is now:
+
+- `.env.example` at the repo root
+
+Current runtime projection:
 
 - `/opt/1215-vps/stack/prototype-local/.env` on the live VPS
-- `stack/prototype-local/.env.example` in the repo as the tracked template
+- `stack/prototype-local/.env.example` as the stack-specific template
 
-This is the file the operator should edit first.
+This means:
+
+- the root `.env` contract is the first file the operator should inspect
+- the stack-local `.env` remains the currently consumed compose file until the
+  unified launcher/bootstrap path exists
 
 It should remain the main home for:
 
@@ -34,6 +42,7 @@ It should remain the main home for:
 - bind and URL values that are expected to vary per site
 - placeholders for manual-init values such as `N8N_API_KEY`
 - Paperclip runtime knobs that already behave well as env vars
+- pointers to Hermes and other non-env config surfaces
 
 ## Referenced Config Surfaces
 
@@ -210,7 +219,8 @@ not a forced replacement for all of `/root/.hermes`. A good target contract is:
 
 When operating or rebuilding the system:
 
-1. check the canonical stack `.env` first
-2. then check this document for the referenced non-env surfaces
-3. do not infer intended config from runtime state unless a documented surface
+1. check the repo-root canonical `.env` first
+2. project the consumed app-plane values into `stack/prototype-local/.env`
+3. then check this document for the referenced non-env surfaces
+4. do not infer intended config from runtime state unless a documented surface
    is missing

@@ -45,6 +45,10 @@ The full design lives in `docs/architecture/`. Read these in order:
   executed per `execution-plan.md`.
 - Local bringup instructions live in
   [`stack/prototype-local/README.md`](stack/prototype-local/README.md).
+- The canonical operator control file is now
+  [`.env.example`](/home/mdc159/projects/company/studio54/.env.example).
+  The compose stack still consumes `stack/prototype-local/.env` today, but the
+  root env is the intended first-stop control surface.
 
 If you are a fresh agent session, start at
 [`docs/architecture/execution-plan.md`](docs/architecture/execution-plan.md)
