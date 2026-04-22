@@ -85,8 +85,7 @@ Practical ownership rule:
 
 ### Paperclip
 
-Paperclip is mostly env-driven, but one referenced config file still matters
-conceptually:
+Paperclip is mostly env-driven, but one referenced config file still matters:
 
 - `/paperclip/instances/default/config.json`
 
@@ -94,23 +93,15 @@ Paperclip also consumes env from the main stack `.env` and runtime container
 env, so this file should be treated as a secondary surface, not the primary
 operator contract.
 
-Observed live nuance on Donna:
+Tracked template for the current reference node:
 
-- `PAPERCLIP_CONFIG` points at `/paperclip/instances/default/config.json`
-- that file may be absent without breaking startup
-- when absent, Paperclip falls back to its default instance-path behavior
+- `stack/prototype-local/paperclip.instance.config.json.example`
 
-So this file is an optional override/config surface, not a guaranteed required
-file on disk.
+Current Donna rule:
 
-Additional dormant integration surface:
-
-- `PAPERCLIP_HERMES_GATEWAY_SOCKET=/run/hermes-gateway/gateway.sock`
-
-That socket path is part of the declared contract, but on Donna there is
-currently no live `gateway.sock` at the host bind source. For the present
-reference node, treat it as future integration wiring rather than an active
-required dependency.
+- `PAPERCLIP_CONFIG` should point at a real file on disk
+- the reference node should not rely on Paperclip's implicit missing-file
+  fallback for this path
 
 ## Runtime State, Not Config
 

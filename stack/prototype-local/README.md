@@ -176,6 +176,20 @@ This script:
 - starts Paperclip quickstart on `127.0.0.1:3100` with a writable local data dir
 - runs an optional Hermes↔Honcho cross-session memory smoke test
 
+### Paperclip instance contract
+
+Donna's reference-node contract expects a real Paperclip instance config file
+at:
+
+- `/paperclip/instances/default/config.json`
+
+Tracked template:
+
+- [paperclip.instance.config.json.example](/home/mdc159/projects/company/studio54/stack/prototype-local/paperclip.instance.config.json.example)
+
+The reference node should not rely on an absent `PAPERCLIP_CONFIG` target plus
+Paperclip's internal missing-file fallback behavior.
+
 These follow-on scripts are intended to wire repo-owned workflows and function
 state after the operator has claimed ownership in the UI:
 

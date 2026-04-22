@@ -70,8 +70,10 @@ exposed through public ingress.
   - `HOST=127.0.0.1`
   - `PORT=3100`
   - `PAPERCLIP_DEPLOYMENT_MODE=local_trusted`
+  - `PAPERCLIP_CONFIG=/paperclip/instances/default/config.json`
 - Observed app listener: `127.0.0.1:3100`
 - Intended Docker healthcheck: `http://127.0.0.1:3100/api/health`
+- Instance config file should exist at `/paperclip/instances/default/config.json`
 
 Current private access path is `https://donna.tailfedd3b.ts.net:8443/` via
 Tailscale Serve.
@@ -85,15 +87,11 @@ Paperclip startup used `detect-port` without a host, so the bridge listener on
 binding to `127.0.0.1`. The fix is to detect collisions on the configured host
 only.
 
-Important current nuance:
+Current reference-node rule:
 
-- `PAPERCLIP_CONFIG=/paperclip/instances/default/config.json` is declared, but
-  the file may be absent at runtime. Paperclip tolerates that and falls back to
-  its default instance path behavior rather than failing startup.
-- `PAPERCLIP_HERMES_GATEWAY_SOCKET=/run/hermes-gateway/gateway.sock` is still
-  wired into the container contract, but Donna does not currently have a live
-  `gateway.sock` on the host side. Treat that gateway path as dormant, not as a
-  proven active dependency of the current reference node.
+- `config.json` should be present and authoritative
+- dormant Hermes gateway socket wiring is not part of the current Paperclip
+  runtime contract on Donna
 
 ### n8n
 
