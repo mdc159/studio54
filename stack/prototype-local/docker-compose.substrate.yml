@@ -439,18 +439,17 @@ services:
       # wires it to the OpenRouter-compatible key already in .env so the
       # Hermes adapter and Paperclip's built-in adapters share creds.
       OPENAI_API_KEY: ${OPENROUTER_API_KEY:-}
-      # Phase E contract: Paperclip reaches Hermes ONLY via the gateway
-      # UDS and the broker via loopback. Both are wired here; it is up
-      # to the Paperclip adapter layer (modules/paperclip/packages/adapters)
-      # to pick them up. These env vars are the public contract.
+      # Broker wiring is active on Donna today. The Hermes gateway socket
+      # contract remains wired here, but the live reference node does not yet
+      # run a host-side gateway.sock, so treat it as dormant integration
+      # wiring until that systemd --user path exists again.
       PAPERCLIP_HERMES_GATEWAY_SOCKET: /run/hermes-gateway/gateway.sock
       PAPERCLIP_BROKER_URL: http://127.0.0.1:8090
     volumes:
-      # Host-side gateway runtime dir bind-mounted RW so the in-container
-      # Paperclip can connect to the socket. The gateway socket itself is
-      # mode 0664 and the paperclip container runs as the same UID, so
-      # this grants connect-only access. Override HERMES_GATEWAY_SOCKET_DIR
-      # if running on a non-standard XDG_RUNTIME_DIR layout.
+      # Host-side gateway runtime dir bind-mounted RW. On Donna this mount is
+      # currently present but empty because the gateway socket is dormant.
+      # Keep the override so the integration can be reactivated without
+      # changing the container contract.
       - "${HERMES_GATEWAY_SOCKET_DIR:-/run/user/1000/hermes-gateway}:/run/hermes-gateway:rw"
       - prototype_paperclip_data:/paperclip
     healthcheck:
