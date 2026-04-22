@@ -26,17 +26,15 @@ The first executable seam for that model now lives in `bin/1215` (alias
 ./bin/1215 compose linux-prototype up -d
 ```
 
-For day-to-day lifecycle, `bin/1215` also exposes unified bringup/teardown
-commands that own both the docker compose substrate and the host-native
-`systemd --user` units (honcho, honcho-deriver, hermes-gateway) — the Phase
-H "one entrypoint to rule them all" surface:
+For day-to-day lifecycle, `bin/1215` exposes unified bringup/teardown commands
+for the compose-managed substrate:
 
 ```bash
-./bin/1215 up       # seed .env, compose up -d --wait, enable host units
+./bin/1215 up       # seed .env, compose up -d --wait
 ./bin/1215 status   # per-service STATE / HEALTH / PORT / HINT table
 ./bin/1215 smoke    # exposure + canary + gate_shared_core invariants
 ./bin/1215 logs <service>
-./bin/1215 down     # stop host units, compose down (preserves volumes)
+./bin/1215 down     # compose down (preserves volumes)
 ```
 
 The thin wrappers `stack/prototype-local/scripts/launch.sh` and
@@ -305,10 +303,10 @@ block required local workflows.
 
 ### Langfuse tracing notes
 
-The `hermes-gateway` (Phase G) opens a Langfuse trace per run, keyed by
-`run_id`. The *same* `run_id` is also written to every broker event's
-`metadata_json.langfuse_trace_id`, so a span in Langfuse and its
-corresponding broker row share one correlation key.
+Current Donna tracing is substrate-driven, not `hermes-gateway`-driven. The
+planning docs still describe a future `hermes-gateway` daemon as one possible
+trace source, but that daemon is not part of the active reference-node
+contract today.
 
 Filtering by run in the UI:
 
