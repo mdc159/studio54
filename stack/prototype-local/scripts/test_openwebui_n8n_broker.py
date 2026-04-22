@@ -9,7 +9,7 @@ import time
 import uuid
 from typing import Any
 
-from common import compose_exec, http_json, parse_env, require_command, wait_for_http
+from common import compose_exec, http_json, parse_env, require_command, require_env_keys, wait_for_http
 
 
 def sql_literal(value: str) -> str:
@@ -156,6 +156,11 @@ def main() -> int:
 
     require_command("docker")
     env = parse_env()
+    require_env_keys(
+        env,
+        ["OPEN_WEBUI_ADMIN_EMAIL", "OPEN_WEBUI_ADMIN_PASSWORD"],
+        context="Open WebUI smoke test sign-in",
+    )
     wait_for_http("http://127.0.0.1:8080/api/config")
     wait_for_http("http://127.0.0.1:8090/healthz")
     wait_for_http("http://127.0.0.1:5678/healthz/readiness")

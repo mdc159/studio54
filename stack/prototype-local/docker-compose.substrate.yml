@@ -408,6 +408,11 @@ services:
     #   So host networking does not expand the network surface.
     # When promoting this node beyond single-operator we flip back to a
     # bridged network + ``authenticated`` deployment mode.
+    #
+    # Donna / Studio54 note:
+    # the reference node now reaches Paperclip through Tailscale Serve directly
+    # on 127.0.0.1:3100. The earlier host-side bridge and Caddy ingress path
+    # have been retired from the active topology.
     build:
       context: ../../modules/paperclip
       args:
@@ -422,6 +427,8 @@ services:
       # Paperclip server config.
       # HOST is explicit: Paperclip's Dockerfile defaults it to 0.0.0.0
       # which ``local_trusted`` mode rejects; we pin to loopback.
+      # PORT=3100 is both the intended and current contract. The host-side
+      # bridge also uses 3100, but on a different host IP.
       HOST: 127.0.0.1
       PORT: 3100
       PAPERCLIP_INSTANCE_ID: ${PAPERCLIP_INSTANCE_ID:-default}
@@ -483,54 +490,6 @@ services:
       retries: 3
       start_period: 40s
 
-  caddy:
-    # Public reverse proxy + automatic Let's Encrypt TLS for the prototype
-    # stack. Modeled on cbass.space's subdomain convention (chat./n8n./
-    # langfuse./neo4j./qdrant.) plus 1215-only additions (paperclip./comfy./
-    # mcp./broker.). Apex {$DOMAIN} is intentionally unrouted so the human can
-    # claim it for a landing page later — Caddy will return its default 200 on
-    # bare-apex hits in the meantime.
-    #
-    # The Caddyfile is bind-mounted read-only; certs + Caddy state live in
-    # named volumes so renewals survive container recreate. The container
-    # joins the default compose network to reach service containers by DNS
-    # name (`n8n:5678`, `open-webui:8080`, ...). Host-native services (Paperclip
-    # on :3100, `hermes dashboard` on :9119) are reached via
-    # host.docker.internal.
-    #
-    # extra_hosts pins `host.docker.internal` to 172.18.0.1 — the gateway of
-    # the compose-created bridge (`1215-prototype-local_default`). The built-in
-    # `host-gateway` alias on Linux Docker resolves to docker0 (172.17.0.1),
-    # which is DOWN in this stack (no containers use the legacy bridge), so it
-    # must be pinned explicitly. If compose ever assigns a different /16 on
-    # rebuild, update this IP and the corresponding `ufw allow from` rule on
-    # the VPS (see Caddyfile hermes-dashboard section).
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    environment:
-      DOMAIN: ${DOMAIN:-localhost}
-      CADDY_EMAIL: ${CADDY_EMAIL:-admin@example.com}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - prototype_caddy_data:/data
-      - prototype_caddy_config:/config
-    extra_hosts:
-      - "host.docker.internal:172.18.0.1"
-    healthcheck:
-      # Probe Caddy's admin API (always plain HTTP on 2019). Port 80 isn't a
-      # safe healthcheck target because Caddy redirects to HTTPS and busybox
-      # wget then trips on the host-header / cert mismatch from inside the
-      # container.
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:2019/config/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
-
 volumes:
   prototype_postgres_data:
   prototype_valkey_data:
@@ -550,5 +509,3 @@ volumes:
   prototype_n8n_mcp_data:
   prototype_paperclip_data:
   prototype_shared_data:
-  prototype_caddy_data:
-  prototype_caddy_config:

@@ -56,6 +56,7 @@ It owns:
 - observability and lineage
 - shared memory integration
 - promotion records
+- host-native executive runtime (`Hermes`)
 
 It should optimize for:
 
@@ -70,6 +71,10 @@ It should not be the primary place for:
 - aggressive autonomous mutation
 - unconstrained prompt experimentation
 - high-churn eval loops
+
+On Donna, Hermes is intentionally host-native on the VPS hub because it is
+expected to exercise machine-level operator authority. That is a defined control
+plane responsibility, not an accidental deployment exception.
 
 ### Allowed behavior
 

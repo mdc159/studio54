@@ -37,15 +37,20 @@ GENERATORS = {
     "N8N_ENCRYPTION_KEY": lambda: token_b64(),
     "N8N_USER_MANAGEMENT_JWT_SECRET": lambda: token_b64(),
     "N8N_MCP_AUTH_TOKEN": lambda: token_b64(),
-    "N8N_OWNER_PASSWORD": lambda: token_urlsafe(),
     "NEO4J_AUTH": lambda: f"neo4j/{token_urlsafe()}",
-    "OPEN_WEBUI_ADMIN_PASSWORD": lambda: token_urlsafe(),
     "BROKER_APP_PASSWORD": lambda: token_hex(),
     "BETTER_AUTH_SECRET": lambda: token_urlsafe(),
 }
 
 BLANK_KEYS = {
     "N8N_API_KEY",
+    "N8N_OWNER_EMAIL",
+    "N8N_OWNER_FIRST_NAME",
+    "N8N_OWNER_LAST_NAME",
+    "N8N_OWNER_PASSWORD",
+    "OPEN_WEBUI_ADMIN_EMAIL",
+    "OPEN_WEBUI_ADMIN_NAME",
+    "OPEN_WEBUI_ADMIN_PASSWORD",
     "OPEN_WEBUI_API_KEY",
     "OPENROUTER_API_KEY",
     "OPENAI_API_KEY",

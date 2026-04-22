@@ -79,6 +79,13 @@ export interface StartedServer {
   databaseUrl: string;
 }
 
+export function detectListenPort(host: string, port: number): Promise<number> {
+  // Only detect collisions on the configured bind host. On Linux, a bridge
+  // listener bound to a different host IP (for example 172.18.0.1:3100) should
+  // not force the main loopback listener off 127.0.0.1:3100.
+  return detectPort({ port, hostname: host });
+}
+
 export async function startServer(): Promise<StartedServer> {
   let config = loadConfig();
   initTelemetry({ enabled: config.telemetryEnabled });
@@ -502,7 +509,7 @@ export async function startServer(): Promise<StartedServer> {
     authReady = true;
   }
   
-  const listenPort = await detectPort(config.port);
+  const listenPort = await detectListenPort(config.host, config.port);
   if (listenPort !== config.port) {
     config.port = listenPort;
   }

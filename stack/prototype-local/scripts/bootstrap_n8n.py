@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bootstrap prototype-local n8n owner state, credentials, workflows, and webhooks."""
+"""Wire repo-owned n8n state after operator-owned first login."""
 
 from __future__ import annotations
 
@@ -13,7 +13,16 @@ from urllib import error, request
 
 import bcrypt
 
-from common import REPO_ROOT, compose_cp, compose_exec, compose_restart, parse_env, require_command, wait_for_http
+from common import (
+    REPO_ROOT,
+    compose_cp,
+    compose_exec,
+    compose_restart,
+    parse_env,
+    require_command,
+    require_env_keys,
+    wait_for_http,
+)
 
 
 WORKFLOW_DIR = REPO_ROOT / "stack" / "prototype-local" / "n8n"
@@ -59,6 +68,11 @@ def load_workflow_definitions() -> list[dict[str, str]]:
 
 
 def ensure_owner_state(env: dict[str, str]) -> str:
+    require_env_keys(
+        env,
+        ["N8N_OWNER_EMAIL", "N8N_OWNER_FIRST_NAME", "N8N_OWNER_LAST_NAME", "N8N_OWNER_PASSWORD"],
+        context="direct n8n owner seeding",
+    )
     email = env["N8N_OWNER_EMAIL"]
     first_name = env["N8N_OWNER_FIRST_NAME"]
     last_name = env["N8N_OWNER_LAST_NAME"]
@@ -153,6 +167,32 @@ limit 1;
     )
     if not rows:
         raise SystemExit(f"failed to locate personal project for {email}")
+    return rows[0]
+
+
+def lookup_owner_project_id(env: dict[str, str]) -> str:
+    require_env_keys(
+        env,
+        ["N8N_OWNER_EMAIL"],
+        context="existing n8n owner lookup",
+    )
+    email = env["N8N_OWNER_EMAIL"]
+    rows = query_psql(
+        f"""
+select p.id
+from project p
+join "user" u on u.id = p."creatorId"
+where u.email = '{shell_quote(email)}' and p.type = 'personal'
+order by p."createdAt"
+limit 1;
+"""
+    )
+    if not rows:
+        raise SystemExit(
+            "could not find an existing n8n personal project for "
+            f"{email}. Create the owner account in the n8n UI first, or rerun "
+            "with --seed-owner if you intentionally want direct DB seeding."
+        )
     return rows[0]
 
 
@@ -405,10 +445,6 @@ def n8n_json_request(
     return parsed
 
 
-def is_placeholder(value: str) -> bool:
-    return value.strip().startswith("replace-with-")
-
-
 def validate_n8n_api_key(api_key: str) -> bool:
     token = api_key.strip()
     if not token or is_placeholder(token):
@@ -426,6 +462,11 @@ def validate_n8n_api_key(api_key: str) -> bool:
 
 
 def login_owner_cookie(env: dict[str, str]) -> str:
+    require_env_keys(
+        env,
+        ["N8N_OWNER_EMAIL", "N8N_OWNER_PASSWORD"],
+        context="n8n owner login",
+    )
     payload = {"emailOrLdapLoginId": env["N8N_OWNER_EMAIL"], "password": env["N8N_OWNER_PASSWORD"]}
     req = request.Request(
         f"{N8N_BASE_URL}/rest/login",
@@ -471,10 +512,16 @@ def create_local_api_key(env: dict[str, str]) -> str:
     return raw_api_key.strip()
 
 
-def resolve_effective_n8n_api_key(env: dict[str, str]) -> str:
+def resolve_effective_n8n_api_key(env: dict[str, str], *, create_api_key: bool) -> str:
     configured_key = env.get("N8N_API_KEY", "").strip()
     if validate_n8n_api_key(configured_key):
         return configured_key
+    if not create_api_key:
+        raise SystemExit(
+            "N8N_API_KEY is missing or invalid. Generate an API key from the n8n UI "
+            "after first login and place it in stack/prototype-local/.env, or rerun "
+            "with --create-api-key if you intentionally want the script to create one."
+        )
     generated_key = create_local_api_key(env)
     if not validate_n8n_api_key(generated_key):
         raise SystemExit("auto-generated n8n API key failed validation against /api/v1/workflows")
@@ -552,12 +599,12 @@ def initialize_mcp_session(auth_token: str, n8n_api_key: str, n8n_url: str) -> s
     return session_id
 
 
-def verify_n8n_mcp(env: dict[str, str]) -> None:
+def verify_n8n_mcp(env: dict[str, str], *, create_api_key: bool) -> None:
     wait_for_http("http://127.0.0.1:13000/health")
     auth_token = env["N8N_MCP_AUTH_TOKEN"].strip()
     if not auth_token or is_placeholder(auth_token):
         raise SystemExit("N8N_MCP_AUTH_TOKEN must be a real token in stack/prototype-local/.env")
-    effective_api_key = resolve_effective_n8n_api_key(env)
+    effective_api_key = resolve_effective_n8n_api_key(env, create_api_key=create_api_key)
     effective_mcp_n8n_url = resolve_effective_mcp_n8n_url(env)
 
     unauth_payload = {
@@ -626,21 +673,31 @@ def verify_n8n_mcp(env: dict[str, str]) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Bootstrap prototype-local n8n runtime state.")
-    parser.parse_args()
+    parser = argparse.ArgumentParser(description="Wire repo-owned n8n state after operator-owned first login.")
+    parser.add_argument(
+        "--seed-owner",
+        action="store_true",
+        help="Directly seed the first n8n owner in the database. Legacy helper path only.",
+    )
+    parser.add_argument(
+        "--create-api-key",
+        action="store_true",
+        help="Create an n8n API key by logging in as the configured owner. Legacy helper path only.",
+    )
+    args = parser.parse_args()
 
     require_command("docker")
     env = parse_env()
     wait_for_http("http://127.0.0.1:5678/healthz/readiness")
-    project_id = ensure_owner_state(env)
+    project_id = ensure_owner_state(env) if args.seed_owner else lookup_owner_project_id(env)
     purge_runtime_drift()
     import_credentials(env, project_id)
     import_workflows(project_id)
     activate_workflows()
     restart_n8n()
     verify_webhooks()
-    verify_n8n_mcp(env)
-    print("prototype-local n8n bootstrap complete")
+    verify_n8n_mcp(env, create_api_key=args.create_api_key)
+    print("prototype-local n8n wiring complete")
     return 0
 
 

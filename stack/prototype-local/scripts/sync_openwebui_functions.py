@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bootstrap local Open WebUI admin state and sync repo-owned functions."""
+"""Sync repo-owned Open WebUI functions after operator-owned first login."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ import uuid
 
 import bcrypt
 
-from common import REPO_ROOT, compose_exec, http_json, parse_env, require_command, wait_for_http
+from common import REPO_ROOT, compose_exec, http_json, parse_env, require_command, require_env_keys, wait_for_http
 
 
 FUNCTION_DIR = REPO_ROOT / "stack" / "prototype-local" / "open-webui" / "functions"
@@ -23,6 +23,11 @@ def shell_quote(value: str) -> str:
 
 
 def ensure_admin(env: dict[str, str]) -> str:
+    require_env_keys(
+        env,
+        ["OPEN_WEBUI_ADMIN_EMAIL", "OPEN_WEBUI_ADMIN_NAME", "OPEN_WEBUI_ADMIN_PASSWORD"],
+        context="direct Open WebUI admin seeding",
+    )
     email = env["OPEN_WEBUI_ADMIN_EMAIL"]
     password = env["OPEN_WEBUI_ADMIN_PASSWORD"]
     name = env["OPEN_WEBUI_ADMIN_NAME"]
@@ -92,7 +97,38 @@ conn.commit()
     return result.stdout.strip().splitlines()[-1]
 
 
+def lookup_admin_user_id(env: dict[str, str]) -> str:
+    require_env_keys(
+        env,
+        ["OPEN_WEBUI_ADMIN_EMAIL"],
+        context="existing Open WebUI admin lookup",
+    )
+    email = env["OPEN_WEBUI_ADMIN_EMAIL"]
+    python_snippet = f"""
+import sqlite3
+conn = sqlite3.connect('/app/backend/data/webui.db')
+cur = conn.cursor()
+cur.execute("select id from user where email=?", ('{shell_quote(email)}',))
+row = cur.fetchone()
+if row:
+    print(row[0])
+"""
+    result = compose_exec("open-webui", ["sh", "-lc", f"python - <<'PY'\n{python_snippet}\nPY"])
+    if not result.stdout.strip():
+        raise SystemExit(
+            "could not find an existing Open WebUI admin for "
+            f"{email}. Create the admin in the UI first, or rerun with "
+            "--seed-admin if you intentionally want direct DB seeding."
+        )
+    return result.stdout.strip().splitlines()[-1]
+
+
 def signin(env: dict[str, str]) -> str:
+    require_env_keys(
+        env,
+        ["OPEN_WEBUI_ADMIN_EMAIL", "OPEN_WEBUI_ADMIN_PASSWORD"],
+        context="Open WebUI admin sign-in",
+    )
     response = http_json(
         "http://127.0.0.1:8080/api/v1/auths/signin",
         method="POST",
@@ -209,13 +245,18 @@ def verify_models(token: str, expected_ids: list[str]) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Sync repo-owned Open WebUI functions.")
-    parser.parse_args()
+    parser = argparse.ArgumentParser(description="Sync repo-owned Open WebUI functions after operator-owned first login.")
+    parser.add_argument(
+        "--seed-admin",
+        action="store_true",
+        help="Directly seed the first Open WebUI admin in SQLite. Legacy helper path only.",
+    )
+    args = parser.parse_args()
 
     require_command("docker")
     env = parse_env()
     wait_for_http("http://127.0.0.1:8080/api/config")
-    user_id = ensure_admin(env)
+    user_id = ensure_admin(env) if args.seed_admin else lookup_admin_user_id(env)
     token = signin(env)
 
     manifest = json.loads(MANIFEST_PATH.read_text())

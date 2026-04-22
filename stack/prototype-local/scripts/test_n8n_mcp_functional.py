@@ -9,7 +9,7 @@ import uuid
 from pathlib import Path
 from urllib import error, request
 
-from common import REPO_ROOT, parse_env, require_command, wait_for_http
+from common import REPO_ROOT, parse_env, require_command, require_env_keys, wait_for_http
 
 
 WORKFLOW_DIR = REPO_ROOT / "stack" / "prototype-local" / "n8n"
@@ -78,6 +78,11 @@ def validate_n8n_api_key(api_key: str) -> bool:
 
 
 def login_owner_cookie(env: dict[str, str]) -> str:
+    require_env_keys(
+        env,
+        ["N8N_OWNER_EMAIL", "N8N_OWNER_PASSWORD"],
+        context="n8n owner login",
+    )
     payload = {"emailOrLdapLoginId": env["N8N_OWNER_EMAIL"], "password": env["N8N_OWNER_PASSWORD"]}
     req = request.Request(
         f"{N8N_BASE_URL}/rest/login",
@@ -127,10 +132,11 @@ def resolve_effective_n8n_api_key(env: dict[str, str]) -> str:
     configured_key = env.get("N8N_API_KEY", "").strip()
     if validate_n8n_api_key(configured_key):
         return configured_key
-    generated_key = create_local_api_key(env)
-    if not validate_n8n_api_key(generated_key):
-        raise SystemExit("auto-generated n8n API key failed validation against /api/v1/workflows")
-    return generated_key
+    raise SystemExit(
+        "N8N_API_KEY is missing or invalid. Complete manual n8n first login, "
+        "generate an API key in the UI, and place it in stack/prototype-local/.env "
+        "before running the functional n8n-mcp test."
+    )
 
 
 def resolve_effective_mcp_n8n_url(env: dict[str, str]) -> str:

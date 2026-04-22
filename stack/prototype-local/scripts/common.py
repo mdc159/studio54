@@ -28,6 +28,25 @@ def parse_env(path: Path = ENV_PATH) -> dict[str, str]:
     return values
 
 
+def is_placeholder(value: str) -> bool:
+    return value.strip().startswith("replace-with-")
+
+
+def missing_env_keys(env: dict[str, str], keys: list[str]) -> list[str]:
+    missing: list[str] = []
+    for key in keys:
+        value = env.get(key, "").strip()
+        if not value or is_placeholder(value):
+            missing.append(key)
+    return missing
+
+
+def require_env_keys(env: dict[str, str], keys: list[str], *, context: str) -> None:
+    missing = missing_env_keys(env, keys)
+    if missing:
+        raise SystemExit(f"{context} requires env values for: {', '.join(missing)}")
+
+
 def compose_base_args() -> list[str]:
     return [
         "docker",

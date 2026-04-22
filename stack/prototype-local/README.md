@@ -80,20 +80,20 @@ repo-configured local services:
 - Langfuse
 - Open WebUI
 - n8n
+- Paperclip
 - `n8n-mcp`
 - ComfyUI
 
 It does **not** yet include:
 
-- Paperclip
 - Hermes gateway
 - Honcho
 
 Those are added after the substrate is validated.
 
-`n8n-mcp` and the ComfyUI media path are therefore part of the current
-prototype target, while Paperclip, Hermes gateway, and Honcho remain explicit
-next additions rather than already-implemented services.
+`n8n-mcp`, Paperclip, and the ComfyUI media path are therefore part of the
+current prototype target, while Hermes gateway and Honcho remain explicit next
+additions rather than already-implemented services.
 
 ## Prototype done bar
 
@@ -136,13 +136,30 @@ curl http://127.0.0.1:8090/healthz
 
 All currently implemented ports bind to `127.0.0.1` only in this slice.
 
-After the containers are up, run the repo-owned runtime bootstrap:
+After the containers are up, complete operator-owned first login for the UI
+surfaces:
+
+1. open Open WebUI and create the initial admin account manually
+2. open `n8n` and create the initial owner/admin account manually
+3. generate the `n8n` API key inside `n8n` if `n8n-mcp` needs it
+4. paste that key into the ignored `stack/prototype-local/.env`
+5. if you want the repo-owned follow-on scripts to authenticate on your behalf,
+   also place your chosen Open WebUI and `n8n` login values into the ignored
+   `.env`
+
+Then run the repo-owned follow-on wiring:
 
 ```bash
 python3 stack/prototype-local/scripts/bootstrap_n8n.py
 python3 stack/prototype-local/scripts/sync_openwebui_functions.py
 python3 stack/prototype-local/scripts/test_openwebui_n8n_broker.py
 ```
+
+Important: the current `bootstrap_n8n.py` and `sync_openwebui_functions.py`
+scripts now default to reusing an operator-created account. Direct owner/admin
+seeding is a legacy helper path behind explicit flags (`--seed-owner`,
+`--seed-admin`). The intended flow is operator-owned first login, followed by
+workflow/function wiring.
 
 To bring up the next-stage local stack pieces (self-hosted Honcho, Hermes
 memory provider wiring, and Paperclip quickstart) in one pass:
@@ -159,13 +176,14 @@ This script:
 - starts Paperclip quickstart on `127.0.0.1:3100` with a writable local data dir
 - runs an optional Hermes↔Honcho cross-session memory smoke test
 
-These scripts make the runtime deterministic on fresh volumes:
+These follow-on scripts are intended to wire repo-owned workflows and function
+state after the operator has claimed ownership in the UI:
 
-- ensure the local `n8n` owner/project state exists
+- verify or reuse the local `n8n` owner/project state
 - import the repo-owned `n8n` credentials and workflow JSON
 - activate the expected webhook workflows
 - ensure the local `langfuse` database exists before Langfuse services start
-- ensure the local Open WebUI admin credentials are set from the ignored `.env`
+- verify or reuse the local Open WebUI admin state
 - upsert the repo-owned Open WebUI function models and verify they appear in
   `/api/models`
 
@@ -438,6 +456,11 @@ The repo-owned sync path is:
 - [stack/prototype-local/open-webui/functions/manifest.json](/mnt/data/Documents/repos/1215-vps/stack/prototype-local/open-webui/functions/manifest.json)
 - [stack/prototype-local/scripts/sync_openwebui_functions.py](/mnt/data/Documents/repos/1215-vps/stack/prototype-local/scripts/sync_openwebui_functions.py)
 
+Reference-node policy:
+
+- create the first Open WebUI admin manually through the UI
+- treat direct DB seeding as legacy helper behavior, not the default path
+
 Important behavior:
 
 - If `chat_id`, `session_id`, and `message_id` are present, Open WebUI may
@@ -474,6 +497,9 @@ Known gotchas already hit in this stack:
 - The `n8n` CLI import commands require real file paths. They do not accept
   `--input=-`, so stdin-based imports fail with `ENOENT`.
 - The repo-owned bootstrap path lives in:
+- Reference-node policy is to create the first `n8n` owner manually, then
+  generate the API key from inside the UI and place it into the ignored `.env`.
+- The repo-owned legacy bootstrap path lives in:
   - [stack/prototype-local/n8n/credentials.manifest.json](/mnt/data/Documents/repos/1215-vps/stack/prototype-local/n8n/credentials.manifest.json)
   - [stack/prototype-local/n8n/workflows.manifest.json](/mnt/data/Documents/repos/1215-vps/stack/prototype-local/n8n/workflows.manifest.json)
   - [stack/prototype-local/scripts/bootstrap_n8n.py](/mnt/data/Documents/repos/1215-vps/stack/prototype-local/scripts/bootstrap_n8n.py)

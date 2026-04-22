@@ -9,11 +9,16 @@ writing. No opinions, no aspirations. Sourced directly from
 For the target state, see [north-star.md](north-star.md). For the plan to
 close the gap, see [roadmap.md](roadmap.md).
 
+For the live Donna / Studio54 VPS runtime inventory, see
+[donna-vps-service-map.md](donna-vps-service-map.md). The VPS has already
+drifted beyond the purely local compose shape described in this document.
+
 ## Services Actually Running
 
 All services defined in
 [stack/prototype-local/docker-compose.substrate.yml](../../stack/prototype-local/docker-compose.substrate.yml).
-Every host port is bound to `127.0.0.1` only — no `0.0.0.0` binds exist.
+Every compose-managed host port is bound to `127.0.0.1` only — no public
+compose binds exist.
 
 | Service | Image | Host binds | Internal DNS | Volumes |
 |---|---|---|---|---|
@@ -32,9 +37,10 @@ Every host port is bound to `127.0.0.1` only — no `0.0.0.0` binds exist.
 | `open-webui` | `ghcr.io/open-webui/open-webui@sha256:eb874c05…` (v0.9.0) | `127.0.0.1:8080 -> 8080` | `open-webui:8080` | `prototype_open_webui_data` |
 | `comfyui` | `ghcr.io/lecode-official/comfyui-docker@sha256:e27739fc…` | `127.0.0.1:8188 -> 8188` | `comfyui:8188` | `prototype_comfyui_{models,custom_nodes,output}`, `prototype_shared_data` |
 | `n8n` | Built from `stack/prototype-local/n8n` (base `n8nio/n8n:2.3.6`) | `127.0.0.1:5678 -> 5678` | `n8n:5678` | `prototype_n8n_data`, `prototype_shared_data` |
+| `paperclip` | Built from `modules/paperclip` | host network; app binds `127.0.0.1:3100` | none (`network_mode: host`) | `prototype_paperclip_data` |
 | `n8n-mcp` | `ghcr.io/czlonkowski/n8n-mcp:2.33.5` | `127.0.0.1:13000 -> 3000` | `n8n-mcp:3000` | `prototype_n8n_mcp_data` |
 
-14 long-running services plus 3 one-shot init containers
+15 long-running services plus 3 one-shot init containers
 (`postgres-bootstrap`, `minio-init`, `shared-data-init`). Five images are
 unpinned (`minio/minio`, `minio/mc`, `qdrant/qdrant`, `neo4j:latest`,
 `clickhouse/clickhouse-server`).
@@ -68,8 +74,10 @@ manually managed via this script.
 Other scripts in `stack/prototype-local/scripts/`:
 
 - `init_env.py` — seeds `.env` from `.env.example`
-- `bootstrap_n8n.py` — provisions n8n API keys and imports workflow JSON
-- `sync_openwebui_functions.py` — installs Open WebUI pipe functions
+- `bootstrap_n8n.py` — legacy helper that can seed n8n owner state, generate or
+  reuse an API key, and import workflow JSON
+- `sync_openwebui_functions.py` — legacy helper that can seed Open WebUI admin
+  state and install repo-owned pipe functions
 - `test_openwebui_n8n_broker.py` — E2E test of the OWU → n8n → broker flow
 - `test_n8n_mcp_functional.py` — functional test of n8n-mcp tools
 - `gate_shared_core.py` — prototype-local shared-core gate runner
@@ -183,8 +191,10 @@ manifest directory either. Phase A creates `nodes/linux-prototype/` with a
 is the template for local configuration. The live
 `stack/prototype-local/.env` is `.gitignore`-excluded and contains
 placeholders for Postgres, MinIO, Langfuse, n8n, Neo4j, Honcho, Broker,
-Paperclip credentials. Module-specific `.env.example` / `.env.template`
-files exist under `modules/*/`.
+Paperclip credentials. `n8n` and Open WebUI first-owner identity fields are
+now intentionally blank by default so the operator can claim ownership through
+the UI. Module-specific `.env.example` / `.env.template` files exist under
+`modules/*/`.
 
 No committed secrets exist in the repo (verified via `.gitignore` coverage
 of `stack/prototype-local/.env`).
@@ -199,15 +209,13 @@ Explicit list of things referenced by `north-star.md` but absent today:
 - **`orchestrator-ceo` Hermes profile** — no `HERMES_HOME` layout, no
   profile config, no skills directory. The `setup_hermes_honcho_paperclip.py`
   smoke test runs Hermes against a default profile only.
-- **Paperclip container entry** — not in `docker-compose.substrate.yml`.
-  Paperclip is installed and run from the host script, not the compose
-  stack, and is not part of any documented compose target.
 - **Honcho as a managed service** — runs from the host via the setup script,
   against its own isolated `1215-honcho-pg` Postgres container. No systemd
   unit, no compose service, and not wired to the shared substrate Postgres.
 - **Edge layer** — no Caddy config, no Tailscale config, no Cloudflared
-  config, no `caddy`/`tailscale`/`cloudflared` services anywhere in the
-  repo. Everything is localhost-only.
+  config, no `cloudflared` services anywhere in the repo. The compose target
+  is localhost-only; private operator ingress is provided on the live node by
+  Tailscale Serve rather than a repo-owned edge service.
 - **Learning-plane runtime** — `autoreason` and `hermes-agent-self-evolution`
   are present as submodules (declared in `.gitmodules`). No
   `learning-orchestrator`, `eval-runner`, `dataset-builder`, or
