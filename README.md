@@ -49,6 +49,10 @@ The full design lives in `docs/architecture/`. Read these in order:
   [`.env.example`](/home/mdc159/projects/company/studio54/.env.example).
   The compose stack still consumes `stack/prototype-local/.env` today, but the
   root env is the intended first-stop control surface.
+- The first projection step from root env to stack env is
+  [project_root_env.py](/home/mdc159/projects/company/studio54/stack/prototype-local/scripts/project_root_env.py).
+- VM rehearsal notes live at
+  [deploy/vm/README.md](/home/mdc159/projects/company/studio54/deploy/vm/README.md).
 
 If you are a fresh agent session, start at
 [`docs/architecture/execution-plan.md`](docs/architecture/execution-plan.md)
