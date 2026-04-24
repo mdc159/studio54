@@ -39,7 +39,7 @@ GENERATORS = {
     "N8N_MCP_AUTH_TOKEN": lambda: token_b64(),
     "NEO4J_AUTH": lambda: f"neo4j/{token_urlsafe()}",
     "BROKER_APP_PASSWORD": lambda: token_hex(),
-    "BETTER_AUTH_SECRET": lambda: token_urlsafe(),
+    "PAPERCLIP_AUTH_SECRET": lambda: token_urlsafe(),
 }
 
 BLANK_KEYS = {
