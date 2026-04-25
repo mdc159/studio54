@@ -1535,6 +1535,7 @@ export function heartbeatService(db: Db) {
         id: issues.id,
         identifier: issues.identifier,
         title: issues.title,
+        description: issues.description,
         status: issues.status,
         priority: issues.priority,
         projectId: issues.projectId,
@@ -3409,8 +3410,18 @@ export function heartbeatService(db: Db) {
       runScopedMentionedSkillKeys,
     );
     const runtimeSkillEntries = await companySkills.listRuntimeSkillEntries(agent.companyId);
+    const adapterRunConfig = {
+      taskId: readNonEmptyString(context.taskId) ?? issueRef?.id,
+      taskTitle: issueRef?.title ?? readNonEmptyString(context.taskTitle),
+      taskBody: readNonEmptyString(context.taskBody) ?? issueContext?.description ?? undefined,
+      commentId: readNonEmptyString(context.commentId) ?? readNonEmptyString(context.wakeCommentId),
+      wakeReason: readNonEmptyString(context.wakeReason),
+    };
     const runtimeConfig = {
       ...effectiveResolvedConfig,
+      ...Object.fromEntries(
+        Object.entries(adapterRunConfig).filter(([, value]) => value !== undefined),
+      ),
       paperclipRuntimeSkills: runtimeSkillEntries,
     };
     const workspaceOperationRecorder = workspaceOperationsSvc.createRecorder({
@@ -3869,7 +3880,10 @@ export function heartbeatService(db: Db) {
       }
       const adapterResult = await adapter.execute({
         runId: run.id,
-        agent,
+        agent: {
+          ...agent,
+          adapterConfig: runtimeConfig,
+        },
         runtime: runtimeForAdapter,
         config: runtimeConfig,
         context,

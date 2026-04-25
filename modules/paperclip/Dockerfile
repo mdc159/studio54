@@ -45,11 +45,21 @@ RUN test -f server/dist/index.js || (echo "ERROR: server build output missing" &
 FROM base AS production
 ARG USER_UID=1000
 ARG USER_GID=1000
+ARG HERMES_REPO=https://github.com/NousResearch/hermes-agent.git
+ARG HERMES_REF=main
 WORKDIR /app
 COPY --chown=node:node --from=build /app /app
 RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai \
   && apt-get update \
-  && apt-get install -y --no-install-recommends openssh-client jq \
+  && apt-get install -y --no-install-recommends openssh-client jq build-essential python3-venv python3-dev libffi-dev \
+  && curl -LsSf https://astral.sh/uv/install.sh | sh \
+  && mkdir -p /opt/uv-python \
+  && git clone --recurse-submodules --branch "$HERMES_REF" "$HERMES_REPO" /opt/hermes-agent \
+  && cd /opt/hermes-agent \
+  && UV_PYTHON_INSTALL_DIR=/opt/uv-python /root/.local/bin/uv venv venv --python 3.11 \
+  && VIRTUAL_ENV=/opt/hermes-agent/venv /root/.local/bin/uv pip install -e "." \
+  && chmod -R a+rX /opt/uv-python /opt/hermes-agent \
+  && ln -sf /opt/hermes-agent/venv/bin/hermes /usr/local/bin/hermes \
   && rm -rf /var/lib/apt/lists/* \
   && mkdir -p /paperclip \
   && chown node:node /paperclip
@@ -59,6 +69,7 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENV NODE_ENV=production \
   HOME=/paperclip \
+  PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
   HOST=0.0.0.0 \
   PORT=3100 \
   SERVE_UI=true \

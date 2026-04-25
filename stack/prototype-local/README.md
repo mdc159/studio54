@@ -101,7 +101,8 @@ of the following are true:
 - Open WebUI -> `n8n` -> broker works through authenticated API calls
 - Open WebUI -> `n8n` -> ComfyUI -> MinIO -> broker artifact registration works
 - `n8n-mcp` is up, authenticated, and functionally verified against local `n8n`
-- Paperclip can invoke Hermes only through the gateway
+- Paperclip can invoke Hermes through the supported `hermes_local` CLI adapter
+  with an isolated per-company `HERMES_HOME`
 - Hermes uses Honcho and recalls durable memory across sessions
 - fake-secret canary checks pass
 - restart resilience passes without manual repair
