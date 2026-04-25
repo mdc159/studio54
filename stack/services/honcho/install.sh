@@ -16,7 +16,7 @@
 #
 # Prerequisites:
 #   - modules/honcho submodule is checked out
-#   - `uv` is on PATH (the user-rule mandate; verified via `uv --version`)
+#   - `uv` is on PATH or installed at /root/.local/bin/uv
 #   - stack/prototype-local/.env contains OPENROUTER_API_KEY and
 #     POSTGRES_PASSWORD
 
@@ -41,11 +41,14 @@ if [[ ! -f "${env_source}" ]]; then
   echo "ERROR: missing ${env_source}; run stack/prototype-local/scripts/init_env.py first." >&2
   exit 1
 fi
-if ! command -v uv >/dev/null 2>&1; then
-  echo "ERROR: \`uv\` not found on PATH." >&2
+if command -v uv >/dev/null 2>&1; then
+  uv_bin="$(command -v uv)"
+elif [[ -x "${HOME}/.local/bin/uv" ]]; then
+  uv_bin="${HOME}/.local/bin/uv"
+else
+  echo "ERROR: \`uv\` not found on PATH or at ${HOME}/.local/bin/uv." >&2
   exit 1
 fi
-uv_bin="$(command -v uv)"
 
 mkdir -p "${systemd_user_dir}" "${honcho_env_dir}"
 chmod 0700 "${honcho_env_dir}"
@@ -87,6 +90,9 @@ umask 077
 LOG_LEVEL=INFO
 AUTH_USE_AUTH=false
 VECTOR_STORE_TYPE=pgvector
+# Honcho's module checkout may contain a developer .env. Keep the generated
+# systemd EnvironmentFile authoritative for the reference-node service.
+PYTHON_DOTENV_DISABLED=1
 
 # Database (shared substrate Postgres; honcho DB + pgvector created by
 # stack/prototype-local/docker-compose.substrate.yml's postgres-bootstrap).

@@ -170,7 +170,7 @@ Generated runtime files:
 - `stack/prototype-local/.env`
 - `/root/.hermes/.env`
 - `/root/.hermes/config.yaml`
-- per-company Hermes `.env` and `config.yaml` under:
+- per-company Hermes `.env`, `config.yaml`, and `honcho.json` under:
   `/paperclip/instances/<instance-id>/companies/<company-id>/hermes-home`
 
 Rule: edit the source-of-truth file, then regenerate runtime files. Do not
@@ -187,5 +187,4 @@ runtime source-of-truth file. It is a shared operational knowledge working copy.
   auth-key/API provisioning path.
 - Which parts of the fresh-node sequence should become a single idempotent
   bootstrap command.
-- Whether and how Honcho should be deployed and mapped to Paperclip companies,
-  agents, and issues.
+- Per-task Honcho session mapping.

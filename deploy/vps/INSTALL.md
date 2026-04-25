@@ -244,7 +244,36 @@ ss -ltnp | grep 9119
 curl http://<node>.tailfedd3b.ts.net:9119/
 ```
 
-## 10. Prepare A Company Hermes Home
+## 10. Install Self-Hosted Honcho
+
+Honcho runs host-native under `systemd --user` and listens only on loopback.
+It uses the shared substrate Postgres database created by the compose
+`postgres-bootstrap` service.
+
+Install and start the units:
+
+```bash
+cd /opt/studio54-bootstrap
+PATH=/root/.local/bin:$PATH bash stack/services/honcho/install.sh
+systemctl --user enable --now honcho honcho-deriver
+```
+
+Verify:
+
+```bash
+systemctl --user is-active honcho honcho-deriver
+curl -fsS http://127.0.0.1:18000/health
+```
+
+Expected:
+
+- both units are `active`
+- health returns `{"status":"ok"}`
+- Honcho reads `/root/.config/1215-vps/honcho.env`
+- the generated unit config disables Honcho's module-local developer `.env`
+  from overriding the systemd environment
+
+## 11. Prepare A Company Hermes Home
 
 After creating a Paperclip company, prepare its isolated Hermes home:
 
@@ -253,7 +282,8 @@ python3 /opt/studio54-bootstrap/stack/prototype-local/scripts/prepare_paperclip_
   --company-id <company-id>
 ```
 
-Default container-visible path:
+When running the script on the host, it prepares the Docker volume path derived
+from `PAPERCLIP_CONFIG_HOST_PATH`. The corresponding container-visible path is:
 
 ```text
 /paperclip/instances/default/companies/<company-id>/hermes-home
@@ -267,10 +297,21 @@ The script creates:
 - `sessions/`
 - `logs/`
 - `memories/`
+- `honcho.json`
 
-It also sets ownership for the Paperclip runtime UID/GID.
+It also sets ownership for the company directory and Hermes home to the
+Paperclip runtime UID/GID.
 
-## 11. Create A hermes_local Agent
+After creating the agent, rerun the preparation command with `--agent-id` so
+`honcho.json` uses the final per-agent AI peer:
+
+```bash
+python3 /opt/studio54-bootstrap/stack/prototype-local/scripts/prepare_paperclip_hermes_home.py \
+  --company-id <company-id> \
+  --agent-id <agent-id>
+```
+
+## 12. Create A hermes_local Agent
 
 Create a Paperclip agent with:
 
@@ -290,7 +331,7 @@ Adapter config shape:
 }
 ```
 
-## 12. Run The Minimal Proof
+## 13. Run The Minimal Proof
 
 Create one local Paperclip issue assigned to the `hermes_local` agent.
 
@@ -298,6 +339,9 @@ The issue should ask the agent to confirm:
 
 - the active `HERMES_HOME`
 - whether `config.yaml` exists
+- whether `honcho.json` exists
+- whether Honcho is active when `memory.provider` is set to `honcho` in that
+  company-scoped `config.yaml`
 
 Trigger the normal agent execution path and verify:
 

@@ -11,6 +11,7 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=@HONCHO_DIR@
 EnvironmentFile=@ENV_FILE@
+Environment=PYTHON_DOTENV_DISABLED=1
 # Alembic is idempotent; running on every start catches schema drift after
 # a Honcho submodule update without needing a separate one-shot unit.
 ExecStartPre=@UV_BIN@ run alembic upgrade head

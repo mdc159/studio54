@@ -44,17 +44,31 @@ def resolve_company_hermes_home(
     if override is not None:
         return override.resolve()
 
-    paperclip_home = (
-        paperclip_home_override.resolve()
-        if paperclip_home_override is not None
-        else Path(source_values.get("PAPERCLIP_HOME", "") or DEFAULT_PAPERCLIP_HOME).expanduser().resolve()
-    )
+    if paperclip_home_override is not None:
+        paperclip_home = paperclip_home_override.resolve()
+    else:
+        paperclip_home = resolve_paperclip_home(source_values)
     instance_id = (
         (instance_id_override or "").strip()
         or source_values.get("PAPERCLIP_INSTANCE_ID", "").strip()
         or DEFAULT_INSTANCE_ID
     )
     return (paperclip_home / "instances" / instance_id / "companies" / company_id / "hermes-home").resolve()
+
+
+def resolve_paperclip_home(source_values: dict[str, str]) -> Path:
+    host_home = source_values.get("PAPERCLIP_HOME_HOST_PATH", "").strip()
+    if host_home:
+        return Path(host_home).expanduser().resolve()
+
+    config_host_path = source_values.get("PAPERCLIP_CONFIG_HOST_PATH", "").strip()
+    if config_host_path:
+        config_path = Path(config_host_path).expanduser().resolve()
+        # .../<paperclip-home>/instances/<instance-id>/config.json
+        if len(config_path.parents) >= 3:
+            return config_path.parents[2]
+
+    return Path(source_values.get("PAPERCLIP_HOME", "") or DEFAULT_PAPERCLIP_HOME).expanduser().resolve()
 
 
 def ensure_runtime_dirs(hermes_home: Path) -> None:
@@ -234,6 +248,7 @@ def main() -> int:
         )
     )
     company_root = hermes_home.parent
+    os.chown(company_root.parent, owner_uid, owner_gid)
     chown_tree(company_root, owner_uid, owner_gid)
 
     print(hermes_home)

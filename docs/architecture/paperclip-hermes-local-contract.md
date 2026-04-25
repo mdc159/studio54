@@ -51,10 +51,47 @@ The script renders:
 
 - `.env`
 - `config.yaml`
+- `honcho.json`
 - `skills/`
 - `sessions/`
 - `logs/`
 - `memories/`
+
+For self-hosted Honcho, the generated `honcho.json` is profile-local under the
+company `HERMES_HOME`. The proven mapping is:
+
+- `baseUrl`: `HONCHO_BASE_URL`, defaulting to `http://127.0.0.1:18000`
+- `workspace`: Paperclip company ID
+- `peerName`: operator peer, defaulting to `operator-root`
+- `aiPeer`: `paperclip-agent-<agent-id>` when the preparation step receives an
+  agent ID
+
+If `--agent-id` is not available at first preparation time, the script uses a
+company-scoped fallback AI peer. Rerun it with `--agent-id` after agent creation
+to get the final per-agent peer.
+
+### Self-Hosted Honcho Runtime Dependency
+
+When inner Hermes is expected to use Honcho, the Paperclip execution image must
+include Hermes' Honcho provider dependency.
+
+The intended image contract installs Hermes with the `honcho` extra so the
+Paperclip runtime user's Hermes venv includes `honcho-ai`.
+
+### Honcho Service Environment
+
+The reference node runs self-hosted Honcho as `systemd --user` units from:
+
+- `stack/services/honcho/honcho.service.in`
+- `stack/services/honcho/honcho-deriver.service.in`
+
+The generated service environment is:
+
+- `/root/.config/1215-vps/honcho.env`
+
+Honcho's module checkout can contain a developer `.env`. The service contract
+sets `PYTHON_DOTENV_DISABLED=1` so the generated systemd `EnvironmentFile`
+remains authoritative for database and provider settings.
 
 ### Resolved Adapter Config
 
@@ -116,6 +153,11 @@ These were observed during the fresh-node proof work:
 - Assignment wake reached the adapter, but the adapter used its no-task
   heartbeat prompt branch because task fields were not surfaced through
   `ctx.config`.
+- Honcho service startup failed when the module-local `.env` overrode the
+  generated systemd environment and pointed migrations at `localhost:5432`
+  instead of the shared substrate Postgres on `127.0.0.1:5433`.
+- Inner Hermes saw `memory.provider: honcho`, but Honcho was unusable until
+  the Paperclip image's Hermes venv included `honcho-ai`.
 
 ## Proof Artifacts
 
@@ -156,6 +198,25 @@ Confirmed:
 - agent-authored comment confirmed:
   `/paperclip/instances/default/companies/ab6896c0-a9a8-473d-943e-88012137055c/hermes-home`
   and `config.yaml`
+
+### Honcho Proof
+
+Fresh-node Honcho proof on `srv1264451`:
+
+- company: `029b7499-feef-4a26-8b14-b7af0c293f78`
+- agent: `b8c2fd7c-eb5d-4b90-a051-ee59484fff19`
+- issue: `HON-1` / `5fcd3de5-c67b-4a30-b1e1-65e884f0cd61`
+- successful run: `29fad228-f49b-4bbf-a066-826138a68d7a`
+
+Confirmed:
+
+- inner Hermes consumed the generated company `honcho.json`
+- Honcho was self-hosted at `http://127.0.0.1:18000`
+- no Honcho API key or managed Honcho dependency was used
+- workspace was the Paperclip company ID
+- AI peer was `paperclip-agent-b8c2fd7c-eb5d-4b90-a051-ee59484fff19`
+- agent-authored comment confirmed Honcho tools were active and
+  `honcho_profile` succeeded
 
 ## Verification Commands Used
 

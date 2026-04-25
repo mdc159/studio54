@@ -57,6 +57,10 @@ Default container-visible path:
 
 The prepared tree must be owned by the Paperclip runtime UID/GID.
 
+The script also renders company-scoped `honcho.json`. If the first preparation
+happens before the Paperclip agent exists, rerun it with `--agent-id` after
+agent creation so the AI peer is `paperclip-agent-<agent-id>`.
+
 ## Agent Creation
 
 Create one Paperclip agent with:
@@ -86,6 +90,7 @@ The proof issue should ask for a minimal observable result, such as confirming:
 
 - the active `HERMES_HOME`
 - whether `config.yaml` exists
+- whether `honcho.json` exists when Honcho is part of the proof
 
 The proof should not require external repos or knowledge exchange access.
 

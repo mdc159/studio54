@@ -11,6 +11,7 @@ PartOf=honcho.service
 Type=simple
 WorkingDirectory=@HONCHO_DIR@
 EnvironmentFile=@ENV_FILE@
+Environment=PYTHON_DOTENV_DISABLED=1
 ExecStart=@UV_BIN@ run python -m src.deriver
 Restart=on-failure
 RestartSec=3

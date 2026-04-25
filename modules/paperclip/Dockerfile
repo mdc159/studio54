@@ -57,7 +57,7 @@ RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/cod
   && git clone --recurse-submodules --branch "$HERMES_REF" "$HERMES_REPO" /opt/hermes-agent \
   && cd /opt/hermes-agent \
   && UV_PYTHON_INSTALL_DIR=/opt/uv-python /root/.local/bin/uv venv venv --python 3.11 \
-  && VIRTUAL_ENV=/opt/hermes-agent/venv /root/.local/bin/uv pip install -e "." \
+  && VIRTUAL_ENV=/opt/hermes-agent/venv /root/.local/bin/uv pip install -e ".[honcho]" \
   && chmod -R a+rX /opt/uv-python /opt/hermes-agent \
   && ln -sf /opt/hermes-agent/venv/bin/hermes /usr/local/bin/hermes \
   && rm -rf /var/lib/apt/lists/* \

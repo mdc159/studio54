@@ -83,9 +83,10 @@ Rules:
 - one company must not inherit another company's memories through an ambient
   shared Hermes home
 - generated company homes contain their own `.env`, `config.yaml`, `skills/`,
-  `sessions/`, `logs/`, and `memories/`
-- Honcho, if enabled later, is additive to Hermes local memory rather than a
-  replacement for it
+  `sessions/`, `logs/`, `memories/`, and `honcho.json`
+- Honcho is additive to Hermes local memory rather than a replacement for it
+- when enabled for an inner Hermes company, Honcho is self-hosted at the
+  loopback `HONCHO_BASE_URL` and uses the Paperclip company ID as workspace
 
 Do not point Paperclip `hermes_local` at `/root/.hermes`.
 
@@ -123,4 +124,4 @@ Examples:
   skill is not fully automated.
 - The host-side gateway/wrapper remains a possible future hardening boundary,
   but it is not the active proven `hermes_local` contract.
-- The active Honcho deployment and ID mapping topology is not verified yet.
+- Per-task Honcho session mapping is not implemented yet.
