@@ -5,6 +5,7 @@ This document defines the proven Hermes boundaries on the reference node.
 Primary related docs:
 
 - Reference node target: [reference-node-target.md](reference-node-target.md)
+- Memory model: [memory-model.md](memory-model.md)
 - Paperclip `hermes_local` contract:
   [paperclip-hermes-local-contract.md](paperclip-hermes-local-contract.md)
 - Company bootstrap path: [company-bootstrap.md](company-bootstrap.md)
@@ -67,6 +68,11 @@ Paperclip’s control surfaces for company-state mutation rather than around the
 
 ## Memory Isolation
 
+Hermes memory has multiple layers. The active documented model is summarized in
+[memory-model.md](memory-model.md). The key local-state rule for this document
+is that outer Hermes and Paperclip-internal Hermes runs must not share runtime
+homes implicitly.
+
 Outer Hermes and inner Hermes must not share runtime homes implicitly.
 
 Rules:
@@ -78,6 +84,8 @@ Rules:
   shared Hermes home
 - generated company homes contain their own `.env`, `config.yaml`, `skills/`,
   `sessions/`, `logs/`, and `memories/`
+- Honcho, if enabled later, is additive to Hermes local memory rather than a
+  replacement for it
 
 Do not point Paperclip `hermes_local` at `/root/.hermes`.
 
@@ -115,3 +123,4 @@ Examples:
   skill is not fully automated.
 - The host-side gateway/wrapper remains a possible future hardening boundary,
   but it is not the active proven `hermes_local` contract.
+- The active Honcho deployment and ID mapping topology is not verified yet.

@@ -7,6 +7,7 @@ state.
 Primary related docs:
 
 - Hermes runtime boundaries: [hermes-runtime.md](hermes-runtime.md)
+- Memory model: [memory-model.md](memory-model.md)
 - Paperclip `hermes_local` contract:
   [paperclip-hermes-local-contract.md](paperclip-hermes-local-contract.md)
 - Company bootstrap path: [company-bootstrap.md](company-bootstrap.md)
@@ -186,3 +187,5 @@ runtime source-of-truth file. It is a shared operational knowledge working copy.
   auth-key/API provisioning path.
 - Which parts of the fresh-node sequence should become a single idempotent
   bootstrap command.
+- Whether and how Honcho should be deployed and mapped to Paperclip companies,
+  agents, and issues.
