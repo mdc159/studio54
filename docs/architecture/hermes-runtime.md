@@ -1,167 +1,117 @@
-# Hermes Runtime Definition
+# Hermes Runtime
 
-Concrete definition of Hermes on the Donna / Studio54 reference node.
+This document defines the proven Hermes boundaries on the reference node.
 
-This document is not about aspirational architecture. It defines what Hermes is
-supposed to be in this system, why it is host-native, and what boundaries it is
-expected to keep relative to Paperclip and the containerized stack.
+Primary related docs:
 
-Related documents:
+- Reference node target: [reference-node-target.md](reference-node-target.md)
+- Paperclip `hermes_local` contract:
+  [paperclip-hermes-local-contract.md](paperclip-hermes-local-contract.md)
+- Company bootstrap path: [company-bootstrap.md](company-bootstrap.md)
 
-- Live node inventory: [donna-vps-service-map.md](donna-vps-service-map.md)
-- Reference-node target: [reference-node-target.md](reference-node-target.md)
-- Node responsibilities: [node-roles.md](node-roles.md)
-- Bootstrap contract: [hermes-bootstrap.md](hermes-bootstrap.md)
-- System config map: [system-config-map.md](system-config-map.md)
+## Outer Hermes
 
-## Role
+Outer Hermes is the host-native operator runtime.
 
-Hermes is the executive agent runtime.
+Proven/current shape:
 
-On this node, Hermes is intended to be:
+- runtime home: `/root/.hermes`
+- source checkout: `/root/.hermes/hermes-agent`
+- CLI shim: `/root/.local/bin/hermes`
+- dashboard unit: `hermes-dashboard.service`
+- dashboard port: `9119`
+- private access: direct tailnet bind on the node MagicDNS hostname
 
-- host-native by design
-- privileged by design
-- private by design
-- defined, not exceptional
+Outer Hermes is independent of Paperclip company lifecycle. It is used for
+operator-level work and can supervise or operate the node outside any specific
+Paperclip company.
 
-Hermes is not "inside" Paperclip. Paperclip is one structured orchestration
-environment that Hermes may direct, but Hermes also retains independent agency
-outside that environment.
+## Inner Hermes
 
-In plain terms:
+Inner Hermes means Hermes launched by Paperclip through the `hermes_local`
+adapter.
 
-- Hermes is the CEO runtime
-- Paperclip is the company orchestration runtime
-- Hermes may govern Paperclip
-- Hermes may also pursue independent work outside Paperclip
+Proven/current shape:
 
-That separation is intentional and should be preserved.
+- the `hermes` CLI exists inside the Paperclip execution environment
+- Paperclip launches it from inside the Paperclip container
+- each company receives its own `HERMES_HOME`
+- the company home path is:
+  `/paperclip/instances/<instance-id>/companies/<company-id>/hermes-home`
+- provider/model settings should come from the generated company-scoped Hermes
+  runtime files, not from ambient host-only state when company isolation
+  matters
 
-## Why Hermes Is Host-Native
+Inner Hermes is subordinate to Paperclip company/task state while it is running
+as a Paperclip agent.
 
-Hermes is expected to have machine-level operator authority. That includes work
-such as:
+## Paperclip Boundary
 
-- inspecting and operating Docker on the host
-- creating or removing containers
-- inspecting host filesystems and logs
-- operating system services through `systemd`
-- interacting with host-level sockets, runtimes, and credentials
+Paperclip is the system of record for company state:
 
-Trying to containerize Hermes while preserving those powers would require
-turning the container into a disguised host process by mounting broad host
-resources, exposing Docker control, or running with privileged settings. That
-would add indirection without meaningfully improving the trust boundary.
+- companies
+- agents
+- org structure
+- issues
+- assignments
+- comments/results
+- approvals and budgets when used
+- routines when used
 
-For this reason, the reference-node contract is:
+Hermes memory is not the system of record for Paperclip company state. When an
+inner Hermes agent works on a company task, Paperclip owns the durable company
+workflow record.
 
-- Hermes remains host-native
-- containerized services reach Hermes only through explicit boundaries
-- Hermes is documented as part of the host control plane, not the app plane
+Outer Hermes may supervise or initialize companies, but it should act through
+Paperclip’s control surfaces for company-state mutation rather than around them.
 
-## Live Donna Contract
+## Memory Isolation
 
-Observed live install paths on Donna:
+Outer Hermes and inner Hermes must not share runtime homes implicitly.
 
-- Binary shim: `/root/.local/bin/hermes`
-- Binary target: `/root/.hermes/hermes-agent/venv/bin/hermes`
-- Source checkout: `/root/.hermes/hermes-agent`
-- Runtime home: `/root/.hermes`
-- Service unit: `/etc/systemd/system/hermes-dashboard.service`
-- Service logs: `/var/log/hermes-dashboard/`
+Rules:
 
-Observed service contract:
+- outer Hermes uses `/root/.hermes`
+- each Paperclip company using `hermes_local` gets its own company-scoped
+  `HERMES_HOME`
+- one company must not inherit another company's memories through an ambient
+  shared Hermes home
+- generated company homes contain their own `.env`, `config.yaml`, `skills/`,
+  `sessions/`, `logs/`, and `memories/`
 
-- systemd unit name: `hermes-dashboard.service`
-- service user: `root`
-- dashboard command:
-  `hermes dashboard --host donna.tailfedd3b.ts.net --port 9119 --no-open --insecure`
-- listener: `100.87.24.49:9119` on the Tailscale interface
-- private access path: `http://donna.tailfedd3b.ts.net:9119/`
+Do not point Paperclip `hermes_local` at `/root/.hermes`.
 
-The dashboard is private because:
+## Cross-Company Transfer
 
-- the service binds on the tailnet address only
-- UFW exposes only `22/tcp` publicly
-- the dashboard is not served through public HTTP ingress
+Cross-company memory transfer is explicit, not ambient.
 
-## Host Header Constraint
+Allowed pattern:
 
-Hermes dashboard validates the incoming `Host` header against the hostname it
-was bound to. This matters operationally.
+- a useful lesson is promoted into docs, a skill, or the shared knowledge repo
+- another company later consumes that promoted artifact intentionally
 
-For Donna, that means:
+Disallowed pattern:
 
-- loopback bind plus generic reverse proxy is not always sufficient
-- Tailscale Serve is not currently the cleanest path for Hermes
-- binding Hermes directly to its MagicDNS hostname on the tailnet is the
-  simplest private access contract that still satisfies Hermes's host-header
-  checks
+- multiple companies silently share the same Hermes memory/profile state
 
-This is why Hermes differs from the containerized services, which are currently
-published through Tailscale Serve.
+## Skills Global, Memory Local
 
-## Authority Boundary
+Default rule:
 
-Hermes is allowed to exercise host-level authority. That authority is not
-implicit; it should be treated as an explicit contract.
+- skills are global by default
+- company memory is local by default
+- promotion from company-local knowledge to shared skill/knowledge is explicit
 
-On the reference node, Hermes is intentionally allowed to:
+Examples:
 
-- inspect and manage Docker workloads
-- read and modify files on the host
-- inspect and manage host services
-- operate as a system-level executive agent
+- GitHub workflow skill: global
+- n8n integration skill: global
+- company-specific task history: local
+- company operating norms: local unless deliberately promoted
 
-Hermes is not intended to be constrained to Paperclip's lifecycle or data model.
+## Open Questions
 
-## Relationship To Paperclip
-
-Paperclip is the company orchestration layer. Hermes is the executive runtime.
-
-The intended relationship is:
-
-- Paperclip hosts specialist workflows, operator surfaces, and company logic
-- Hermes may direct or supervise Paperclip through defined interfaces
-- Hermes remains operationally independent from Paperclip
-
-The architecture should avoid two bad collapses:
-
-1. treating Hermes as just another Paperclip worker
-2. treating Paperclip as the total container for Hermes's identity and authority
-
-The reference-node design should preserve:
-
-- Hermes independence
-- Paperclip specialization
-- explicit integration points between them
-
-## Target Repo Contract
-
-For rebuildability, the repo should eventually define Hermes through explicit
-host-bootstrap artifacts:
-
-- deterministic install path
-- deterministic runtime home
-- checked-in systemd unit template
-- checked-in environment/config contract
-- checked-in bootstrap or repair script
-
-The current live rebuild sequence for Donna is captured in
-[hermes-bootstrap.md](hermes-bootstrap.md).
-
-The important point is not that Hermes becomes containerized. The important
-point is that Hermes becomes reproducible.
-
-## Definition Of "Defined"
-
-Hermes is considered defined on the reference node when all of the following are
-true:
-
-1. its install paths are known
-2. its service unit is known
-3. its privilege model is intentional
-4. its network contract is intentional
-5. its relationship to Paperclip is explicit
-6. a fresh-node rebuild path can recreate it without archaeology
+- The exact long-term promotion workflow from company-local learning to shared
+  skill is not fully automated.
+- The host-side gateway/wrapper remains a possible future hardening boundary,
+  but it is not the active proven `hermes_local` contract.

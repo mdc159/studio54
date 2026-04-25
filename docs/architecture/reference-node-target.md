@@ -1,236 +1,188 @@
-# Donna Reference Node Target
+# Reference Node Target
 
-Concrete target state for the current Donna / Studio54 VPS. This is not a new
-architecture brainstorm. It is the definition of what "correct" should mean for
-the existing reference node once it is stabilized enough to clone to future
-sites.
+This is the current contract for a correct private-first Studio54 node. It is
+based on the proven fresh-node behavior on `srv1264451` and the committed repo
+state.
 
-Use this document as the operational target while cleaning up the live VPS and
-while back-porting that shape into the repo.
+Primary related docs:
 
-Related documents:
+- Hermes runtime boundaries: [hermes-runtime.md](hermes-runtime.md)
+- Paperclip `hermes_local` contract:
+  [paperclip-hermes-local-contract.md](paperclip-hermes-local-contract.md)
+- Company bootstrap path: [company-bootstrap.md](company-bootstrap.md)
+- Shared knowledge repo:
+  [agent-knowledge-exchange.md](agent-knowledge-exchange.md)
+- Operator runbook: [../../deploy/vps/INSTALL.md](../../deploy/vps/INSTALL.md)
 
-- Current live runtime inventory:
-  [donna-vps-service-map.md](donna-vps-service-map.md)
-- Hermes runtime definition:
-  [hermes-runtime.md](hermes-runtime.md)
-- Hermes bootstrap contract:
-  [hermes-bootstrap.md](hermes-bootstrap.md)
-- System config map:
-  [system-config-map.md](system-config-map.md)
-- Operator initialization flow:
-  [operator-init-flow.md](operator-init-flow.md)
-- Current repo/runtime mismatch:
-  [current-state.md](current-state.md)
-- Long-range architecture target:
-  [north-star.md](north-star.md)
-- Sequenced repo roadmap:
-  [roadmap.md](roadmap.md)
+## Node Shape
 
-## Scope
+Baseline:
 
-This document defines the target shape for one working reference node:
+- plain Ubuntu 24.04 VPS
+- SSH reachable
+- Docker and Compose installed
+- Tailscale installed and joined
+- public inbound limited to `22/tcp`
+- app services bound privately on loopback
+- operator access over the tailnet
 
-- one VPS
-- one deploy root
-- one operator access model
-- one documented service ownership model
+Current proven fresh node:
 
-It does not try to fully solve multi-node rollout, learning-plane automation,
-or final product design. Those come after the reference node is boring and
-predictable.
+- host: `srv1264451`
+- public IP: `191.101.0.164`
+- deploy checkout: `/opt/studio54-bootstrap`
+- Paperclip local URL: `http://127.0.0.1:3100/`
+- node-local knowledge clone: `/opt/agent-knowledge-exchange`
 
-## Definition Of Done
+Correctness rule:
 
-Donna is considered a stabilized reference node when all of the following are
-true:
+- host-native services belong to the operator control plane
+- containerized services belong to the app plane
+- loopback is the default app-plane exposure
+- the tailnet is the operator ingress layer
 
-1. The live runtime matches the declared runtime model.
-2. Operator-only surfaces are tailnet-only by default.
-3. Public surfaces are explicitly chosen and minimal.
-4. Every service has one clear owner: Compose or systemd.
-5. Ports, binds, healthchecks, and hostnames match documentation.
-6. The repo contains enough truth to rebuild the same shape intentionally.
-7. A second site could be created by changing site-specific config rather than
-   reinventing topology.
+## Ownership
 
-## Canonical Ownership
+### Host-Native
 
-### Repo
+Host-native services are part of the operator control plane:
 
-- Shared source of truth for service definitions, scripts, topology, and docs
-- Target deploy root shape for VPS nodes
-- Site-specific overlays via env/config, not ad hoc code edits
+- `ssh`
+- `docker`
+- `tailscaled`
+- outer Hermes dashboard: `hermes-dashboard.service`
 
-### Live node
+Outer Hermes is installed under `/root/.hermes` and is intentionally separate
+from Paperclip-internal Hermes runs. See
+[hermes-runtime.md](hermes-runtime.md).
 
-- Current reference implementation
-- Used for functional experiments with Hermes, Paperclip, n8n, and related
-  workflows
-- Every live fix must either be reflected back into the repo or captured as
-  intentional node-local configuration
+### Containerized
 
-## Target Deploy Root
+The app plane is owned by Docker Compose in
+`stack/prototype-local/docker-compose.substrate.yml`.
 
-The VPS should converge on one canonical deploy checkout:
+Current service inventory:
 
-- `/opt/1215-vps`
-
-This deploy root should be treated as the only active site checkout for Donna.
-Other directories such as `/opt/honcho` and `/opt/honcho-self-hosted` may
-remain for now, but they are not the target service ownership root and should
-not be part of the steady-state deployment path unless explicitly promoted.
-
-## Service Ownership Model
-
-### Compose-managed
-
-These should be owned by Docker Compose in the steady state:
-
-- `open-webui`
-- `n8n`
-- `n8n-mcp`
-- `broker`
 - `postgres`
+- `postgres-bootstrap`
 - `valkey`
-- `minio`
 - `qdrant`
 - `neo4j`
+- `minio`
+- `minio-init`
 - `clickhouse`
+- `broker`
+- `broker-bootstrap`
+- `shared-data-init`
+- `open-webui`
+- `comfyui`
+- `n8n`
+- `n8n-mcp`
 - `langfuse-web`
 - `langfuse-worker`
 - `paperclip`
-- `comfyui`
 
-### systemd-managed
+The Paperclip image includes the local agent CLIs needed by Paperclip adapters,
+including `hermes` for the proven `hermes_local` path.
 
-These may remain host-managed if they truly need host-native behavior:
+Paperclip is containerized, but it is also the execution environment for
+Paperclip-local agent adapters. That means some runtime tooling, including the
+proven `hermes_local` path, must exist inside the Paperclip image rather than
+only on the host.
 
-- `hermes-dashboard.service`
+## Exposure Contract
 
-Hermes is the intentional exception to the otherwise containerized app plane. It
-belongs to the host-native control plane, not the app plane.
+### Loopback
 
-Future host services are allowed only when there is a real host-bound reason,
-not as a convenience shortcut.
+Containerized operator services bind locally on the node. Proven/declared local
+service URLs:
 
-## Access Model
+- Paperclip: `http://127.0.0.1:3100/`
+- Open WebUI: `http://127.0.0.1:8080/`
+- n8n: `http://127.0.0.1:5678/`
+- Langfuse: `http://127.0.0.1:3000/`
+- n8n-mcp: `http://127.0.0.1:13000/health`
+- Neo4j: `http://127.0.0.1:7474/`
+- Qdrant: `http://127.0.0.1:6333/`
+- MinIO Console: `http://127.0.0.1:9011/`
+- MinIO S3 API: `http://127.0.0.1:9010/`
+- ComfyUI: `http://127.0.0.1:8188/`
 
-### Tailnet-only surfaces
+### Tailnet
 
-These are operator/admin surfaces and should default to Tailscale-only access:
+Containerized operator services are published privately with Tailscale Serve.
+The expected URL shape is:
 
-- Hermes dashboard
-- Paperclip
-- n8n-mcp
-- Langfuse
-- Neo4j
-- Qdrant
-- MinIO console
-- MinIO S3 API unless there is a specific external integration need
+- `https://<node>.tailfedd3b.ts.net:8443/` Paperclip
+- `https://<node>.tailfedd3b.ts.net:8444/` Open WebUI
+- `https://<node>.tailfedd3b.ts.net:8445/` n8n
+- `https://<node>.tailfedd3b.ts.net:8446/` Langfuse
+- `https://<node>.tailfedd3b.ts.net:8447/` n8n-mcp
+- `https://<node>.tailfedd3b.ts.net:8448/` Neo4j
+- `https://<node>.tailfedd3b.ts.net:8449/` Qdrant
+- `https://<node>.tailfedd3b.ts.net:8450/` MinIO Console
+- `https://<node>.tailfedd3b.ts.net:8451/` MinIO S3 API
+- `https://<node>.tailfedd3b.ts.net:8452/` ComfyUI
 
-### Public surfaces
+Outer Hermes is the exception: the dashboard binds directly to the node's
+MagicDNS hostname on port `9119`, with a narrow `ufw` allow rule on
+`tailscale0`.
 
-Only keep a surface public if there is a clear product need. The current Donna
-reference node no longer requires any public HTTP application ingress.
+This is a deliberate exception to the general Tailscale Serve pattern because
+the Hermes dashboard host-header behavior is currently satisfied by direct
+tailnet binding.
 
-If a future node truly needs public app ingress, add it intentionally as a
-separate exposure profile rather than making it the default shape.
+### Public Internet
 
-## Network Contracts
+The reference node does not require public HTTP application ingress. Public
+inbound should remain limited to `22/tcp` unless a future public surface is
+explicitly added and documented.
 
-The reference node should have stable, documented contracts:
+## Persistence Expectations
 
-- Hermes dashboard:
-  - app listener: `100.87.24.49:9119` on the Tailscale interface
-  - private URL: `http://donna.tailfedd3b.ts.net:9119/`
-- Paperclip:
-  - app listener: `127.0.0.1:3100`
-  - private URL: `https://donna.tailfedd3b.ts.net:8443`
-- n8n:
-  - app listener: `127.0.0.1:5678`
-- n8n-mcp:
-  - app listener: `127.0.0.1:13000 -> 3000`
-- Open WebUI:
-  - app listener: `127.0.0.1:8080`
+The node is not correctly bootstrapped unless these survive reboot:
 
-The key rule is simple:
+- `ssh` enabled
+- `docker` enabled
+- `tailscaled` enabled
+- Docker services have persistent volumes and restart policy
+- Tailscale Serve mappings remain present
+- outer Hermes systemd unit remains enabled
+- Paperclip volume data remains durable
+- company-scoped Hermes homes remain under the Paperclip data tree
 
-- no silent port drift
-- no "pick the next free port" behavior unless explicitly intended
-- no healthcheck pointing at a stale port
+## Configuration Contract
 
-## Configuration Model
+The root `.env` is the canonical operator control surface for node-level
+settings and provider/model keys.
 
-The repo should separate:
+Source-of-truth files:
 
-- shared deployment logic
-- site-specific values
+- root `.env`
+- root `.env.example`
+- Compose file: `stack/prototype-local/docker-compose.substrate.yml`
+- projection scripts in `stack/prototype-local/scripts/`
+- docs in `docs/architecture/`
 
-Site-specific values include:
+Generated runtime files:
 
-- public domain
-- Tailscale hostname / tailnet URL allowlists
-- secrets
-- optional exposure choices
-- any per-site branding or naming
+- `stack/prototype-local/.env`
+- `/root/.hermes/.env`
+- `/root/.hermes/config.yaml`
+- per-company Hermes `.env` and `config.yaml` under:
+  `/paperclip/instances/<instance-id>/companies/<company-id>/hermes-home`
 
-These should live in env/config overlays, not in copy-pasted service edits.
+Rule: edit the source-of-truth file, then regenerate runtime files. Do not
+treat generated runtime files as the canonical source.
 
-## Current Known Good Behaviors To Preserve
+The node-local knowledge repo clone at `/opt/agent-knowledge-exchange` is not a
+runtime source-of-truth file. It is a shared operational knowledge working copy.
 
-These are already working and should be preserved while refactoring:
+## Open Questions
 
-- Paperclip is healthy on `127.0.0.1:3100`
-- Paperclip tailnet URL returns `200 OK`
-- Hermes tailnet URL is reachable
-- Tailscale Serve provides the operator access layer for containerized services
-- Hermes remains privately reachable on the tailnet through its direct MagicDNS
-  bind
-- SSH remains available
-
-## Known Cleanup Targets
-
-These are expected stabilization tasks, not signs of failure:
-
-- document and possibly reduce the remaining host-managed units
-- reconcile WSL copies and deploy checkout into a less confusing repo workflow
-- decide whether Hermes should stay host-native long term
-- codify Hermes as a host-native, tailnet-bound control-plane service
-
-## Operator Rules
-
-While stabilizing the reference node:
-
-1. Do not make live-only fixes without recording them in repo docs or source.
-2. Prefer narrowing exposure over widening it.
-3. Prefer one clear ownership path over clever integration.
-4. Preserve working experiments unless they directly block cleanup.
-5. Use this node to discover the real runtime shape before standardizing it.
-
-## Next Stabilization Milestones
-
-### Milestone 1: Access sanity
-
-- operator surfaces are reachable over Tailscale Serve
-- public HTTP/HTTPS ingress is removed unless explicitly required
-- stale public-route docs/comments are cleaned up
-
-### Milestone 2: Ownership sanity
-
-- explicit list of Compose vs systemd services
-- no mystery listeners
-- no unexplained host-level bridges or sidecars
-
-### Milestone 3: Repo alignment
-
-- repo docs match the live node
-- deploy config reflects the working node shape
-- second-site deployment inputs are identifiable
-
-### Milestone 4: Clone readiness
-
-- one documented bring-up path
-- one documented env model
-- one documented exposure policy
-- enough confidence to stand up another site without rediscovering the topology
+- Whether the outer Hermes checkout should be version-pinned beyond the current
+  documented install path.
+- Whether Tailscale authorization should remain manual or move to a reusable
+  auth-key/API provisioning path.
+- Which parts of the fresh-node sequence should become a single idempotent
+  bootstrap command.

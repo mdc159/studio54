@@ -1,35 +1,29 @@
-# studio54 - VPS bring-up walkthrough
+# VPS Install Runbook
 
-This document tracks the current private-first bring-up pattern for a fresh
-plain Ubuntu 24.04 VPS. It is intentionally focused on the bootstrap
-contract: what the script can do, what the operator still has to do, and what
-"done" looks like on a clean node.
+This is the procedural bring-up path for a fresh private-first Studio54 node.
 
-For the concrete post-bootstrap follow-up sequence on the current test node,
-see:
+Architecture contracts:
 
-- [TEST_NODE_PLAN.md](TEST_NODE_PLAN.md)
+- Reference node target:
+  [../../docs/architecture/reference-node-target.md](../../docs/architecture/reference-node-target.md)
+- Hermes runtime:
+  [../../docs/architecture/hermes-runtime.md](../../docs/architecture/hermes-runtime.md)
+- Paperclip `hermes_local` contract:
+  [../../docs/architecture/paperclip-hermes-local-contract.md](../../docs/architecture/paperclip-hermes-local-contract.md)
+- Company bootstrap:
+  [../../docs/architecture/company-bootstrap.md](../../docs/architecture/company-bootstrap.md)
+- Knowledge repo:
+  [../../docs/architecture/agent-knowledge-exchange.md](../../docs/architecture/agent-knowledge-exchange.md)
 
-## 0. Current target shape
+Current proven fresh node:
 
-Fresh node baseline:
+- host: `srv1264451`
+- public IP: `191.101.0.164`
+- deploy checkout: `/opt/studio54-bootstrap`
 
-- plain Ubuntu 24.04 LTS
-- SSH reachable
-- no one-click Docker / Paperclip / Hermes preset
-- public inbound limited to `22/tcp`
+## 1. Host Prerequisites
 
-Target node shape after bring-up:
-
-- Docker substrate running from `stack/prototype-local/`
-- app services bound privately on loopback
-- Tailscale installed and joined
-- operator surfaces published through Tailscale Serve
-- Hermes installed host-native later as a separate step
-
-## 1. Host prerequisites
-
-Install base packages and enable Docker:
+Start from plain Ubuntu 24.04.
 
 ```bash
 apt update
@@ -38,9 +32,9 @@ systemctl enable --now docker
 systemctl enable --now ssh
 ```
 
-## 2. Firewall baseline
+## 2. Firewall Baseline
 
-Keep the node closed by default:
+Keep public inbound closed except SSH:
 
 ```bash
 ufw default deny incoming
@@ -49,28 +43,34 @@ ufw allow 22/tcp
 ufw --force enable
 ```
 
-Expected result:
+Expected:
 
 - public inbound is `22/tcp` only
-- app services are not reachable on the public interface
+- app services are not publicly reachable
 
-## 3. Clone the repo and create the root operator env
+## 3. Clone Studio54
 
 ```bash
-mkdir -p /opt && cd /opt
+mkdir -p /opt
+cd /opt
 git clone git@github.com:mdc159/studio54.git studio54-bootstrap
 cd /opt/studio54-bootstrap
 cp .env.example .env
 ```
 
-Edit the root `.env` and set at least:
+Edit the root `.env`. It is the canonical operator control surface.
+
+Set at least:
 
 - `NODE_NAME`
 - `DEPLOY_ROOT`
 - `STACK_ENV_PATH`
-- provider/model API keys you actually intend to use
+- provider/model API keys intended for the node
+- Hermes model/provider defaults if they should differ from the template
 
-Then project the stack env:
+## 4. Project Runtime Files
+
+Generate runtime files from the root `.env`:
 
 ```bash
 python3 stack/prototype-local/scripts/project_root_env.py
@@ -78,14 +78,22 @@ python3 stack/prototype-local/scripts/init_env.py
 python3 stack/prototype-local/scripts/project_hermes_runtime.py
 ```
 
-## 4. Bring up the substrate
+Generated files are not the source of truth. Edit root `.env`, then regenerate.
+
+Generated outputs include:
+
+- `stack/prototype-local/.env`
+- `/root/.hermes/.env`
+- `/root/.hermes/config.yaml`
+
+## 5. Start The Container Stack
 
 ```bash
 cd /opt/studio54-bootstrap/stack/prototype-local
 docker compose -f docker-compose.substrate.yml up -d
 ```
 
-Expected local service URLs on the node:
+Expected local service URLs:
 
 - Paperclip: `http://127.0.0.1:3100/`
 - Open WebUI: `http://127.0.0.1:8080/`
@@ -98,9 +106,7 @@ Expected local service URLs on the node:
 - MinIO S3 API: `http://127.0.0.1:9010/`
 - ComfyUI: `http://127.0.0.1:8188/`
 
-## 5. Install and join Tailscale
-
-Install:
+## 6. Install And Join Tailscale
 
 ```bash
 curl -fsSL https://tailscale.com/install.sh | sh
@@ -108,29 +114,20 @@ systemctl enable --now tailscaled
 tailscale up --ssh
 ```
 
-### Operator-required step
+Operator-required step:
 
-`tailscale up` will emit a login URL. The bootstrap cannot complete the
-tailnet authorization itself unless you later add a reusable auth key or
-API-based provisioning path.
-
-Current operator action:
-
-1. open the login URL from the `tailscale up` output
+1. open the login URL from `tailscale up`
 2. authorize the node into the intended tailnet
-3. return to the shell and verify:
+3. verify:
 
 ```bash
 tailscale status
 tailscale ip -4
 ```
 
-This operator login step should be treated as a first-class documented
-touchpoint, not hidden tribal knowledge.
+## 7. Publish Operator Services Privately
 
-## 6. Publish private operator URLs with Tailscale Serve
-
-Example pattern:
+Publish containerized operator services with Tailscale Serve:
 
 ```bash
 tailscale serve --bg --https=8443 http://127.0.0.1:3100
@@ -145,13 +142,13 @@ tailscale serve --bg --https=8451 http://127.0.0.1:9010
 tailscale serve --bg --https=8452 http://127.0.0.1:8188
 ```
 
-Then confirm:
+Verify:
 
 ```bash
 tailscale serve status
 ```
 
-Expected private URLs follow this shape:
+Expected private URL shape:
 
 - `https://<node>.tailfedd3b.ts.net:8443/` Paperclip
 - `https://<node>.tailfedd3b.ts.net:8444/` Open WebUI
@@ -164,23 +161,9 @@ Expected private URLs follow this shape:
 - `https://<node>.tailfedd3b.ts.net:8451/` MinIO S3 API
 - `https://<node>.tailfedd3b.ts.net:8452/` ComfyUI
 
-## 7. Persistence requirements
+## 8. Install Outer Hermes
 
-The node is not considered correctly bootstrapped unless the following survive
-reboot:
-
-- `ssh` enabled at boot
-- `docker` enabled at boot
-- `tailscaled` enabled at boot
-- Docker services use persistent volumes and restart policies
-- Tailscale Serve mappings remain present
-
-Nothing should depend on "someone ran this command manually once" unless the
-step is explicitly documented as operator-required.
-
-## 8. Install outer Hermes host-native
-
-Install the host prerequisites Hermes expects:
+Install host prerequisites:
 
 ```bash
 apt update
@@ -209,13 +192,15 @@ Expected CLI shim:
 ls -l /root/.local/bin/hermes
 ```
 
-Expected shape:
+Expected:
 
 - `/root/.local/bin/hermes -> /root/.hermes/hermes-agent/venv/bin/hermes`
-- `/root/.hermes/.env` generated from the root operator `.env`
-- `/root/.hermes/config.yaml` generated from the root operator `.env`
+- `/root/.hermes/.env`
+- `/root/.hermes/config.yaml`
 
-Install the dashboard unit:
+## 9. Install Hermes Dashboard Unit
+
+Create `/etc/systemd/system/hermes-dashboard.service`:
 
 ```ini
 [Unit]
@@ -245,133 +230,153 @@ systemctl daemon-reload
 systemctl enable --now hermes-dashboard.service
 ```
 
-### Operator-required step
-
-Hermes on this node is not published through Tailscale Serve. It binds directly
-to the Tailscale interface so the dashboard host-header checks remain satisfied.
-
-That means `ufw` needs a narrow tailnet-only rule:
+Allow direct tailnet access:
 
 ```bash
 ufw allow in on tailscale0 to any port 9119 proto tcp
 ```
 
-This does not widen the public surface. It only permits direct tailnet access
-to the Hermes dashboard.
+Verify:
 
-## 9. Inner Hermes isolation for Paperclip companies
+```bash
+systemctl status hermes-dashboard.service --no-pager
+ss -ltnp | grep 9119
+curl http://<node>.tailfedd3b.ts.net:9119/
+```
 
-`hermes_local` should not reuse the outer runtime at `/root/.hermes`.
+## 10. Prepare A Company Hermes Home
 
-The external `hermes-paperclip-adapter` accepts `adapterConfig.env`, so a
-Paperclip agent can set `HERMES_HOME` explicitly for each company. The accepted
-target path is:
-
-- `/paperclip/instances/<instance-id>/companies/<company-id>/hermes-home`
-
-Prepare that company-scoped runtime home with:
+After creating a Paperclip company, prepare its isolated Hermes home:
 
 ```bash
 python3 /opt/studio54-bootstrap/stack/prototype-local/scripts/prepare_paperclip_hermes_home.py \
   --company-id <company-id>
 ```
 
-That renders:
+Default container-visible path:
 
-- `<hermes-home>/.env`
-- `<hermes-home>/config.yaml`
-- runtime directories:
-  - `skills/`
-  - `sessions/`
-  - `logs/`
-  - `memories/`
+```text
+/paperclip/instances/default/companies/<company-id>/hermes-home
+```
 
-Example adapter config fragment for a Paperclip agent:
+The script creates:
+
+- `.env`
+- `config.yaml`
+- `skills/`
+- `sessions/`
+- `logs/`
+- `memories/`
+
+It also sets ownership for the Paperclip runtime UID/GID.
+
+## 11. Create A hermes_local Agent
+
+Create a Paperclip agent with:
+
+- `adapterType`: `hermes_local`
+- pinned model: `google/gemini-2.5-flash`
+- minimal env:
+  - `HERMES_HOME=/paperclip/instances/default/companies/<company-id>/hermes-home`
+
+Adapter config shape:
 
 ```json
 {
+  "model": "google/gemini-2.5-flash",
   "env": {
     "HERMES_HOME": "/paperclip/instances/default/companies/<company-id>/hermes-home"
   }
 }
 ```
 
-Current supported path:
+## 12. Run The Minimal Proof
 
-- the Paperclip image should ship a local `hermes` CLI, just as it already
-  ships `codex` and `claude`
-- `hermes_local` then runs Hermes directly inside the Paperclip execution
-  environment
-- per-company memory isolation comes from `adapterConfig.env.HERMES_HOME`
-- the `hermes` launcher and its Python interpreter must be executable by the
-  Paperclip runtime user, not only by `root`
-- Paperclip must pass the resolved runtime adapter config into local adapters;
-  persisted secret/env bindings such as `{ "type": "plain", "value": "..." }`
-  are not valid process environment values
-- Paperclip must surface run-scoped task fields such as `taskId`, `taskTitle`,
-  `taskBody`, `commentId`, and `wakeReason` in the adapter config object for
-  adapters that build prompts from `ctx.config`
+Create one local Paperclip issue assigned to the `hermes_local` agent.
 
-Do not point Paperclip `hermes_local` at `/root/.hermes`. That would collapse
-inner company memory into the outer operator runtime.
+The issue should ask the agent to confirm:
 
-Fresh-node proof on `srv1264451`:
+- the active `HERMES_HOME`
+- whether `config.yaml` exists
+
+Trigger the normal agent execution path and verify:
+
+- heartbeat run succeeds
+- agent-authored comment/result exists
+- comment confirms the isolated company `HERMES_HOME`
+- comment confirms `config.yaml`
+- assignment wakes surface task fields into adapter config so
+  `hermes-paperclip-adapter` does not fall into its no-task heartbeat branch
+
+Keep one durable test company unless there is a reason to archive it.
+
+Known successful proof artifacts on `srv1264451`:
+
+First proof:
 
 - company: `c754b277-80cc-47f3-8d54-90d02ff41b2d`
 - agent: `d6ff8a00-730e-46fd-9d2d-124c428ab3fd`
-- issue: `HER-1` / `567cdb82-6eef-412d-ae7a-230bc74f3c33`
-- successful run: `f415ff0c-de15-44c7-9238-bd0d44ba5150`
-- Hermes log confirmed it loaded:
-  `/paperclip/instances/default/companies/c754b277-80cc-47f3-8d54-90d02ff41b2d/hermes-home/.env`
+- issue: `HER-1`
+- successful runs:
+  - `f415ff0c-de15-44c7-9238-bd0d44ba5150`
+  - `a301c43d-29cd-4343-a75f-1297eb521e36`
+  - `683f1a86-8ee7-44f3-8f34-af36c0947022`
 
-Second proof on `srv1264451` after reconciling live runtime drift:
+Second proof:
 
 - company: `ab6896c0-a9a8-473d-943e-88012137055c`
 - agent: `8a5e57dc-ebe9-435b-a9d0-716c8826a4c6`
 - issue: `HERA-1` / `6d1b1635-fb6c-45d5-b7d4-d65c113d124a`
 - successful run: `3a2b0317-bee0-48fb-8cb1-2b4590bb9a6f`
-- agent-authored comment:
-  `DONE /paperclip/instances/default/companies/ab6896c0-a9a8-473d-943e-88012137055c/hermes-home with config.yaml existing.`
-- this proof used API-persisted env binding objects and the live resolved-config
-  heartbeat patch
-- the default `hermes_local` prompt path exposed a separate adapter contract:
-  task fields live in the heartbeat context, but `hermes-paperclip-adapter`
-  reads them from `ctx.config`
+- agent comment: `5ded90f3-32a1-4a2d-867b-63d191441a4b`
 
-Longer-term hardening option:
+## 13. Sync The Knowledge Repo
 
-- a host-side gateway/wrapper remains a valid future boundary if we later want
-  stricter host/container separation than the current upstream CLI adapter model
-
-### First-start note
-
-On first dashboard start, Hermes may run an internal `npm install` or frontend
-asset build before port `9119` actually begins listening. Do not treat an
-immediate connection failure in the first few seconds as a broken install.
-
-### Verification
-
-From the node:
+Clone or update:
 
 ```bash
-systemctl status hermes-dashboard.service --no-pager
-ss -ltnp | grep 9119
-curl -H 'Host: <node>.tailfedd3b.ts.net' http://<tailscale-ip>:9119/
+cd /opt
+if [ ! -d agent-knowledge-exchange/.git ]; then
+  git clone git@github.com:mdc159/agent-knowledge-exchange.git agent-knowledge-exchange
+fi
+cd /opt/agent-knowledge-exchange
+git pull --ff-only
 ```
 
-From a tailnet client:
+Use the node-local secret loader when needed:
 
 ```bash
-curl http://<node>.tailfedd3b.ts.net:9119/
+source /root/.config/agent-knowledge-exchange/env
 ```
 
-Expected result:
+Promote reusable operational findings to the knowledge repo. Keep live runtime
+state in Paperclip, Docker volumes, and service-specific storage.
 
-- Hermes dashboard HTML is returned
+Use issues for proof summaries and PRs for durable doc updates. The repo is a
+shared operational knowledge layer, not a substitute for Paperclip workflow
+state or infrastructure backups.
 
-## 9. What still comes later
+## 14. Reboot Verification
 
-Still to be layered on:
+After reboot:
 
-- Hermes config surface definition under `/root/.hermes`
-- separation between outer Hermes memory and Paperclip-internal Hermes runs
+```bash
+systemctl is-active ssh docker tailscaled hermes-dashboard.service
+docker ps
+tailscale serve status
+curl -fsS http://127.0.0.1:3100/api/companies >/dev/null
+```
+
+Expected:
+
+- host services are active
+- container stack is up
+- Tailscale Serve mappings remain present
+- Paperclip responds locally
+- Hermes dashboard is reachable on the tailnet
+
+## Open Questions
+
+- Whether Tailscale authorization should remain manual or use reusable auth-key
+  provisioning.
+- Which parts of this runbook should become one idempotent bootstrap command.
