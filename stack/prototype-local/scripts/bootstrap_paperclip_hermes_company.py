@@ -54,19 +54,20 @@ Worker agent:
 - id: {worker_id}
 
 Manager responsibilities:
-1. Create exactly one delegated child issue assigned to the worker agent above.
-2. The child issue must be bounded and ask the worker to report this one requirement: both bootstrapped agents use adapterType hermes_local and the same company-scoped HERMES_HOME.
-3. Link the child to this parent issue. If Paperclip exposes this issue id in the task context, send it as parentId when creating the child.
-4. Do not create more than one child issue.
-5. Do not modify infrastructure.
-6. On the first run, after creating the child issue, post at most one PENDING comment and stop. Do not keep polling or waiting inside the same run.
-7. Do not close this parent issue until the worker child issue is done.
-8. When woken after the worker child is done, post one concise final completion comment on this parent issue containing:
+1. Create exactly one linked child issue for the worker task.
+2. To avoid a create-time assignment race, create the child issue first with parentId set to this parent, status "backlog", and no assignee.
+3. The child issue must be bounded and ask the worker to report this one requirement: both bootstrapped agents use adapterType hermes_local and the same company-scoped HERMES_HOME.
+4. After child creation succeeds, activate it with one PATCH that sets assigneeAgentId to the worker id above and status "todo".
+5. Do not create more than one child issue.
+6. Do not modify infrastructure.
+7. On the first run, after creating and activating the child issue, post at most one PENDING comment and stop. Do not keep polling or waiting inside the same run.
+8. Do not close this parent issue until the worker child issue is done.
+9. When woken after the worker child is done, post one concise final completion comment on this parent issue containing:
    - the worker finding
    - whether the child issue was linked to this parent
    - whether the manager/worker lifecycle completed correctly
-9. Close this parent explicitly through one final PATCH containing status "done" and the completion comment.
-10. After the final PATCH succeeds, stop. Do not post additional comments or continue working.
+10. Close this parent explicitly through one final PATCH containing status "done" and the completion comment.
+11. After the final PATCH succeeds, stop. Do not post additional comments or continue working.
 
 Worker task requirement:
 - post one concise final completion comment
