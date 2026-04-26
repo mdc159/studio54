@@ -12,31 +12,34 @@ RUN usermod -u $USER_UID --non-unique node \
   && usermod -g $USER_GID -d /paperclip node
 
 FROM base AS deps
-WORKDIR /app
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
-COPY cli/package.json cli/
-COPY server/package.json server/
-COPY ui/package.json ui/
-COPY packages/shared/package.json packages/shared/
-COPY packages/db/package.json packages/db/
-COPY packages/adapter-utils/package.json packages/adapter-utils/
-COPY packages/mcp-server/package.json packages/mcp-server/
-COPY packages/adapters/claude-local/package.json packages/adapters/claude-local/
-COPY packages/adapters/codex-local/package.json packages/adapters/codex-local/
-COPY packages/adapters/cursor-local/package.json packages/adapters/cursor-local/
-COPY packages/adapters/gemini-local/package.json packages/adapters/gemini-local/
-COPY packages/adapters/openclaw-gateway/package.json packages/adapters/openclaw-gateway/
-COPY packages/adapters/opencode-local/package.json packages/adapters/opencode-local/
-COPY packages/adapters/pi-local/package.json packages/adapters/pi-local/
-COPY packages/plugins/sdk/package.json packages/plugins/sdk/
-COPY patches/ patches/
+WORKDIR /workspace/modules/paperclip
+COPY modules/paperclip/package.json modules/paperclip/pnpm-workspace.yaml modules/paperclip/pnpm-lock.yaml modules/paperclip/.npmrc ./
+COPY modules/paperclip/cli/package.json cli/
+COPY modules/paperclip/server/package.json server/
+COPY modules/paperclip/ui/package.json ui/
+COPY modules/paperclip/packages/shared/package.json packages/shared/
+COPY modules/paperclip/packages/db/package.json packages/db/
+COPY modules/paperclip/packages/adapter-utils/package.json packages/adapter-utils/
+COPY modules/paperclip/packages/mcp-server/package.json packages/mcp-server/
+COPY modules/paperclip/packages/adapters/claude-local/package.json packages/adapters/claude-local/
+COPY modules/paperclip/packages/adapters/codex-local/package.json packages/adapters/codex-local/
+COPY modules/paperclip/packages/adapters/cursor-local/package.json packages/adapters/cursor-local/
+COPY modules/paperclip/packages/adapters/gemini-local/package.json packages/adapters/gemini-local/
+COPY modules/paperclip/packages/adapters/openclaw-gateway/package.json packages/adapters/openclaw-gateway/
+COPY modules/paperclip/packages/adapters/opencode-local/package.json packages/adapters/opencode-local/
+COPY modules/paperclip/packages/adapters/pi-local/package.json packages/adapters/pi-local/
+COPY modules/paperclip/packages/plugins/sdk/package.json packages/plugins/sdk/
+COPY modules/hermes-paperclip-adapter/package.json ../hermes-paperclip-adapter/
+COPY modules/paperclip/patches/ patches/
 
 RUN pnpm install --frozen-lockfile
 
 FROM base AS build
-WORKDIR /app
-COPY --from=deps /app /app
-COPY . .
+WORKDIR /workspace/modules/paperclip
+COPY --from=deps /workspace /workspace
+COPY modules/paperclip/ .
+COPY modules/hermes-paperclip-adapter/ ../hermes-paperclip-adapter/
+RUN pnpm --filter hermes-paperclip-adapter build
 RUN pnpm --filter @paperclipai/ui build
 RUN pnpm --filter @paperclipai/plugin-sdk build
 RUN pnpm --filter @paperclipai/server build
@@ -45,16 +48,14 @@ RUN test -f server/dist/index.js || (echo "ERROR: server build output missing" &
 FROM base AS production
 ARG USER_UID=1000
 ARG USER_GID=1000
-ARG HERMES_REPO=https://github.com/NousResearch/hermes-agent.git
-ARG HERMES_REF=main
-WORKDIR /app
-COPY --chown=node:node --from=build /app /app
+WORKDIR /workspace/modules/paperclip
+COPY --chown=node:node --from=build /workspace /workspace
+COPY modules/hermes-agent/ /opt/hermes-agent/
 RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai \
   && apt-get update \
   && apt-get install -y --no-install-recommends openssh-client jq build-essential python3-venv python3-dev libffi-dev \
   && curl -LsSf https://astral.sh/uv/install.sh | sh \
   && mkdir -p /opt/uv-python \
-  && git clone --recurse-submodules --branch "$HERMES_REF" "$HERMES_REPO" /opt/hermes-agent \
   && cd /opt/hermes-agent \
   && UV_PYTHON_INSTALL_DIR=/opt/uv-python /root/.local/bin/uv venv venv --python 3.11 \
   && VIRTUAL_ENV=/opt/hermes-agent/venv /root/.local/bin/uv pip install -e ".[honcho]" \
@@ -64,7 +65,7 @@ RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/cod
   && mkdir -p /paperclip \
   && chown node:node /paperclip
 
-COPY scripts/docker-entrypoint.sh /usr/local/bin/
+COPY modules/paperclip/scripts/docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENV NODE_ENV=production \

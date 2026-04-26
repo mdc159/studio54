@@ -62,6 +62,15 @@ function cfgStringArray(v: unknown): string[] | undefined {
     ? (v as string[])
     : undefined;
 }
+function cfgEnvString(v: unknown): string | undefined {
+  if (typeof v === "string") return v;
+  if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;
+  const binding = v as Record<string, unknown>;
+  if (binding.type === "plain" && typeof binding.value === "string") {
+    return binding.value;
+  }
+  return undefined;
+}
 
 // ---------------------------------------------------------------------------
 // Wake-up prompt builder
@@ -414,15 +423,23 @@ export async function execute(
     ...buildPaperclipEnv(ctx.agent),
   };
 
-  if (ctx.runId) env.PAPERCLIP_RUN_ID = ctx.runId;
   if ((ctx as any).authToken && !env.PAPERCLIP_API_KEY)
     env.PAPERCLIP_API_KEY = (ctx as any).authToken;
   const taskId = cfgString(ctx.config?.taskId);
   if (taskId) env.PAPERCLIP_TASK_ID = taskId;
 
-  const userEnv = config.env as Record<string, string> | undefined;
+  const userEnv = config.env as Record<string, unknown> | undefined;
   if (userEnv && typeof userEnv === "object") {
-    Object.assign(env, userEnv);
+    for (const [key, value] of Object.entries(userEnv)) {
+      const resolved = cfgEnvString(value);
+      if (resolved !== undefined) env[key] = resolved;
+    }
+  }
+
+  if (ctx.runId) {
+    env.PAPERCLIP_RUN_ID = ctx.runId;
+    env.HERMES_RUN_ID = ctx.runId;
+    env.LANGFUSE_TRACE_ID = ctx.runId;
   }
 
   // ── Resolve working directory ──────────────────────────────────────────

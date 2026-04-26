@@ -414,7 +414,8 @@ services:
     # on 127.0.0.1:3100. The earlier host-side bridge and Caddy ingress path
     # have been retired from the active topology.
     build:
-      context: ../../modules/paperclip
+      context: ../..
+      dockerfile: modules/paperclip/Dockerfile
       args:
         USER_UID: ${PAPERCLIP_USER_UID:-1000}
         USER_GID: ${PAPERCLIP_USER_GID:-1000}
@@ -435,6 +436,8 @@ services:
       PAPERCLIP_DEPLOYMENT_MODE: ${PAPERCLIP_DEPLOYMENT_MODE:-local_trusted}
       PAPERCLIP_DEPLOYMENT_EXPOSURE: ${PAPERCLIP_DEPLOYMENT_EXPOSURE:-private}
       BETTER_AUTH_SECRET: ${PAPERCLIP_AUTH_SECRET:-paperclip-local-secret-1215}
+      PAPERCLIP_AUTH_PUBLIC_BASE_URL: ${PAPERCLIP_AUTH_PUBLIC_BASE_URL:-}
+      PAPERCLIP_ALLOWED_HOSTNAMES: ${PAPERCLIP_ALLOWED_HOSTNAMES:-}
       # Paperclip uses OPENAI_API_KEY in its generic LLM path; prototype
       # wires it to the OpenRouter-compatible key already in .env so the
       # Hermes adapter and Paperclip's built-in adapters share creds.

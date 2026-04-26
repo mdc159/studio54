@@ -304,27 +304,35 @@ block required local workflows.
 
 ### Langfuse tracing notes
 
-Current Donna tracing is substrate-driven, not `hermes-gateway`-driven. The
-planning docs still describe a future `hermes-gateway` daemon as one possible
-trace source, but that daemon is not part of the active reference-node
-contract today.
+Current Donna model-call tracing is emitted caller-side from the Hermes
+runtime. It does not depend on OpenRouter observability forwarding, and the
+first slice intentionally omits prompt/output capture.
+
+Active Donna target:
+
+- Operator URL: `https://donna.tailfedd3b.ts.net:8446/`
+- In-stack URL: `http://127.0.0.1:3000`
+- Project: `prototype-1215` / `1215 Continuity Plane`
+
+For Paperclip `hermes_local` runs, the Paperclip run ID is passed through as
+`PAPERCLIP_RUN_ID`, `HERMES_RUN_ID`, and `LANGFUSE_TRACE_ID`. This makes the
+Paperclip run ID the Langfuse trace ID for deterministic correlation.
 
 Filtering by run in the UI:
 
-- Filter by `sessionId` to group all runs inside one CEO session.
 - Open `http://127.0.0.1:3000/project/prototype-1215/traces/<run_id>`
-  to jump straight to the lifecycle spans for a specific run.
+  to jump straight to the Hermes model-call trace for a specific Paperclip run.
 - For API access, the trace endpoint is
   `GET /api/public/traces/<run_id>` and
   `GET /api/public/observations?traceId=<run_id>`.
 
-On each lifecycle transition the gateway emits a SPAN with
-`name={run.created|run.started|run.completed|run.failed}`; failed runs
-carry `level=ERROR` so dashboards can colour-code them distinctly.
+Each OpenAI-compatible Hermes chat completion emits one Langfuse `GENERATION`
+observation with conservative metadata: provider, model, base-url host,
+streaming flag, status, latency, and error class when present.
 
 If `LANGFUSE_HOST` / `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` are
-absent from `stack/prototype-local/.env`, the gateway's Langfuse
-client silently no-ops and broker continuity is unaffected.
+absent from the Hermes runtime environment, Langfuse tracing silently no-ops
+and model calls are unaffected.
 
 ### MinIO artifact notes
 

@@ -223,9 +223,12 @@ Explicit list of things referenced by `north-star.md` but absent today:
 - **`broadcast_*` / `artifact_*` Hermes skills** — no skills on any profile
   that wrap the broker API as callable Hermes skills. The broker API is
   reachable but no agent currently calls it as a skill.
-- **Langfuse correlation wiring** — Langfuse is running, but there is no
-  code that threads `run_id` from broker events to Langfuse `trace_id`, and
-  no Hermes spans are emitted.
+- **Langfuse model-call tracing** — private caller-side tracing is repo-owned
+  in Hermes for OpenAI-compatible chat completions. On the Paperclip
+  `hermes_local` path, the Paperclip run ID is passed through as
+  `PAPERCLIP_RUN_ID`, `HERMES_RUN_ID`, and `LANGFUSE_TRACE_ID`, so the
+  Langfuse trace ID equals the Paperclip run ID. Prompt/output capture remains
+  intentionally out of scope.
 - **`vps-hub` compose implementation** — the target is declared with 15
   services but `compose_files` is empty.
 - **Node manifest for this machine** — no live `nodes/<this-host>/` entry
