@@ -48,11 +48,15 @@ The preparation script is:
 
 - `stack/prototype-local/scripts/prepare_paperclip_hermes_home.py`
 
-The reference one-agent bootstrap script that drives company creation, home
-preparation, agent creation, agent-aware Honcho rendering, and validation issue
-creation is:
+The reference bootstrap script that drives company creation, home preparation,
+agent creation, agent-aware Honcho rendering, and validation issue creation is:
 
 - `stack/prototype-local/scripts/bootstrap_paperclip_hermes_company.py`
+
+Proven topologies:
+
+- `--topology one-agent`
+- `--topology manager-worker`
 
 Default target path:
 
@@ -80,6 +84,11 @@ company `HERMES_HOME`. The proven mapping is:
 If `--agent-id` is not available at first preparation time, the script uses a
 company-scoped fallback AI peer. Rerun it with `--agent-id` after agent creation
 to get the final per-agent peer.
+
+For the current manager/worker bootstrap topology, manager and worker share the
+same company-scoped `HERMES_HOME`. This is the current practical runtime
+contract. It should not be described as per-agent Hermes memory isolation.
+Per-agent Hermes homes remain future work.
 
 ### Self-Hosted Honcho Runtime Dependency
 
@@ -198,6 +207,12 @@ These were observed during the fresh-node proof work:
   issue `in_progress` when completion was split across separate comment and
   status-update actions. The active prompt now directs the agent to complete
   with one PATCH containing both `status: "done"` and `comment`.
+- A manager-created worker issue produced one fast failed assignment run when
+  the child was created already assigned. The run failed during Paperclip setup
+  with embedded Postgres `pg_trgm` loading, before Hermes executed. The active
+  manager/worker bootstrap avoids this by creating the linked child first in
+  `backlog` with no assignee, then activating it with a PATCH that sets
+  `assigneeAgentId` and `status: "todo"`.
 
 ## Proof Artifacts
 
@@ -298,6 +313,32 @@ Confirmed:
 - `createdByRunId` matched the assignment run
 - the issue ended `done`
 - no direct-path wake-loop regression was observed after a quiet-period check
+
+### Reusable Manager/Worker Bootstrap Proof
+
+Fresh-node reusable manager/worker bootstrap proof on `srv1264451`:
+
+- company: `e8613a66-ff00-43af-b4a0-cde3a16a1bcf`
+- manager: `bf391c48-bd92-40c0-808d-5e0ab6b8caa3`
+- worker: `4840065d-324f-4542-b773-2f6f4cbf1c6e`
+- parent: `BOOAAA-1` / `88aa3912-64a7-4935-890f-38575c10071b`
+- child: `BOOAAA-2` / `c187d982-d375-4b4f-9a8f-6aab67db8828`
+
+Confirmed:
+
+- `bootstrap_paperclip_hermes_company.py --topology manager-worker` created
+  the company, manager, worker, shared company-scoped Hermes home, and
+  validation parent issue
+- manager and worker used direct `hermes_local`
+- manager and worker shared the same company-scoped `HERMES_HOME`
+- the manager created exactly one linked child issue
+- the child issue had the correct `parentId`
+- the worker completed the child issue
+- the manager closed the parent after child completion
+- parent and child ended `done`
+- all observed runs settled as `succeeded`
+- no failed worker assignment run occurred after the create-then-activate
+  sequencing rule was applied
 
 ## Verification Commands Used
 

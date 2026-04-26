@@ -402,7 +402,66 @@ Direct completion proof:
 - result: one direct `hermes_local` assignment run posted the useful comment,
   attributed it to the agent/run, and left the issue `done`
 
-## 13. Sync The Knowledge Repo
+## 13. Bootstrap A Manager/Worker hermes_local Company
+
+Use the same bootstrap script with the proven manager/worker topology:
+
+```bash
+cd /opt/studio54-bootstrap
+python3 stack/prototype-local/scripts/bootstrap_paperclip_hermes_company.py \
+  --topology manager-worker \
+  --company-name "<company-name>" \
+  --company-description "<company-description>" \
+  --manager-name "<manager-name>" \
+  --manager-role general \
+  --manager-title "Manager" \
+  --worker-name "<worker-name>" \
+  --worker-role general \
+  --worker-title "Worker" \
+  --model "<model>" \
+  --manager-worker-issue-title "<validation-parent-title>"
+```
+
+For a fresh validation parent, add:
+
+```bash
+--always-create-issue
+```
+
+The script creates or reuses one company, one manager `hermes_local` agent, one
+worker `hermes_local` agent, and one validation parent issue assigned to the
+manager.
+
+Current runtime-home caveat:
+
+- manager and worker share the company-scoped `HERMES_HOME`
+- this is the current practical contract
+- per-agent Hermes homes are not implemented yet
+
+Delegated worker issue sequencing rule:
+
+1. create the child linked to the parent with `parentId`
+2. leave it unassigned and `backlog` at creation time
+3. activate it with one PATCH setting:
+   - `assigneeAgentId: <worker-agent-id>`
+   - `status: "todo"`
+
+This sequencing avoids the create-time assignment wake race observed during the
+first manager/worker proof. That failed run was a Paperclip embedded Postgres
+setup failure while loading `pg_trgm`; it did not reach Hermes and was not a
+Honcho or shared-home failure.
+
+Clean manager/worker proof on `srv1264451`:
+
+- company: `e8613a66-ff00-43af-b4a0-cde3a16a1bcf`
+- manager: `bf391c48-bd92-40c0-808d-5e0ab6b8caa3`
+- worker: `4840065d-324f-4542-b773-2f6f4cbf1c6e`
+- parent: `BOOAAA-1` / `88aa3912-64a7-4935-890f-38575c10071b`
+- child: `BOOAAA-2` / `c187d982-d375-4b4f-9a8f-6aab67db8828`
+- result: no failed worker assignment run; child and parent ended `done`; all
+  observed runs settled as `succeeded`
+
+## 14. Sync The Knowledge Repo
 
 Clone or update:
 
@@ -428,7 +487,7 @@ Use issues for proof summaries and PRs for durable doc updates. The repo is a
 shared operational knowledge layer, not a substitute for Paperclip workflow
 state or infrastructure backups.
 
-## 14. Reboot Verification
+## 15. Reboot Verification
 
 After reboot:
 

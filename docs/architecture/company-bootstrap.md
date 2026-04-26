@@ -16,7 +16,7 @@ Primary related docs:
 
 ## Minimal Path
 
-The reference one-agent bootstrap path is:
+The smallest reference bootstrap path is one agent:
 
 ```bash
 python3 stack/prototype-local/scripts/bootstrap_paperclip_hermes_company.py \
@@ -50,6 +50,73 @@ A successful proof verifies:
 3. The comment has the heartbeat run as `createdByRunId`.
 4. The issue reaches `done` through the agent's explicit final PATCH.
 5. The company `HERMES_HOME` and `honcho.json` are company-scoped.
+
+## Manager/Worker Path
+
+The reusable manager/worker bootstrap path is also proven:
+
+```bash
+python3 stack/prototype-local/scripts/bootstrap_paperclip_hermes_company.py \
+  --topology manager-worker \
+  --company-name "<company-name>" \
+  --company-description "<company-description>" \
+  --manager-name "<manager-name>" \
+  --manager-role general \
+  --manager-title "Manager" \
+  --worker-name "<worker-name>" \
+  --worker-role general \
+  --worker-title "Worker" \
+  --model "<model>" \
+  --manager-worker-issue-title "<validation-parent-title>"
+```
+
+The script creates or reuses:
+
+- one Paperclip company
+- one manager `hermes_local` agent
+- one worker `hermes_local` agent
+- one validation parent issue assigned to the manager
+
+The current manager/worker runtime-home contract is company-scoped, not
+per-agent. Both manager and worker use the same:
+
+```text
+/paperclip/instances/default/companies/<company-id>/hermes-home
+```
+
+This is the current practical contract for the direct path. It does not provide
+per-agent Hermes memory isolation. Per-agent Hermes homes are future work.
+
+The manager/worker validation task uses this sequencing rule for delegated
+worker issues:
+
+1. Create the child issue linked to the parent with `parentId`.
+2. Leave the child in `backlog` and unassigned at creation time.
+3. Activate the child with a PATCH that sets both:
+   - `assigneeAgentId: <worker-agent-id>`
+   - `status: "todo"`
+
+This avoids the create-time assignment wake race observed during the first
+manager/worker bootstrap proof. That failed worker run was a Paperclip embedded
+Postgres setup failure while loading `pg_trgm`; it did not reach Hermes and was
+not caused by Honcho or shared `HERMES_HOME`.
+
+Clean manager/worker proof:
+
+- company: `e8613a66-ff00-43af-b4a0-cde3a16a1bcf`
+- manager: `bf391c48-bd92-40c0-808d-5e0ab6b8caa3`
+- worker: `4840065d-324f-4542-b773-2f6f4cbf1c6e`
+- parent: `BOOAAA-1` / `88aa3912-64a7-4935-890f-38575c10071b`
+- child: `BOOAAA-2` / `c187d982-d375-4b4f-9a8f-6aab67db8828`
+
+Confirmed:
+
+- no failed worker assignment run
+- child `parentId` was correct
+- worker completed the child issue
+- manager closed the parent after child completion
+- parent and child ended `done`
+- all observed runs settled as `succeeded`
 
 ## Company Creation
 
@@ -194,9 +261,14 @@ actively blocks follow-up debugging.
 
 ## Automation Boundary
 
-The active repo-owned reference path is the one-agent bootstrap script. Older
-gateway-oriented bootstrap work, including `bootstrap_paperclip_ceo.py`, is
-historical/optional/future-state and is not the active direct-path bootstrap
+The active repo-owned reference path is
+`bootstrap_paperclip_hermes_company.py`. Its proven topologies are:
+
+- `--topology one-agent`
+- `--topology manager-worker`
+
+Older gateway-oriented bootstrap work, including `bootstrap_paperclip_ceo.py`,
+is historical/optional/future-state and is not the active direct-path bootstrap
 contract.
 
 Outer Hermes may eventually drive this path as an operator workflow, but the
@@ -206,4 +278,4 @@ Paperclip assignment/heartbeat execution path.
 ## Open Questions
 
 - The archival policy for old durable test companies is not finalized.
-- Manager/worker company bootstrap is not implemented by this script.
+- Per-agent Hermes homes for manager/worker companies are not implemented.
