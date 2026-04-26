@@ -46,6 +46,11 @@ Proven/current shape:
 Inner Hermes is subordinate to Paperclip company/task state while it is running
 as a Paperclip agent.
 
+For Paperclip-assigned tasks, inner Hermes must explicitly update Paperclip
+issue state. A successful Hermes process exit is not a task completion signal by
+itself. The active direct-path completion action is one Paperclip PATCH that
+sets `status: "done"` and includes the completion comment in the same request.
+
 ## Paperclip Boundary
 
 Paperclip is the system of record for company state:

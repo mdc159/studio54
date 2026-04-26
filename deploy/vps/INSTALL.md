@@ -347,10 +347,21 @@ Trigger the normal agent execution path and verify:
 
 - heartbeat run succeeds
 - agent-authored comment/result exists
+- comment has the assigned agent as `authorAgentId`
+- comment has the heartbeat run as `createdByRunId`
+- issue reaches `done` through the agent's explicit final PATCH
 - comment confirms the isolated company `HERMES_HOME`
 - comment confirms `config.yaml`
 - assignment wakes surface task fields into adapter config so
   `hermes-paperclip-adapter` does not fall into its no-task heartbeat branch
+
+Completion contract:
+
+- Paperclip does not infer issue completion from adapter/process success.
+- The agent must close the issue through Paperclip.
+- The final direct-path completion action is one PATCH containing both
+  `status: "done"` and the completion comment body, sent with
+  `X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID`.
 
 Keep one durable test company unless there is a reason to archive it.
 
@@ -373,6 +384,16 @@ Second proof:
 - issue: `HERA-1` / `6d1b1635-fb6c-45d5-b7d4-d65c113d124a`
 - successful run: `3a2b0317-bee0-48fb-8cb1-2b4590bb9a6f`
 - agent comment: `5ded90f3-32a1-4a2d-867b-63d191441a4b`
+
+Direct completion proof:
+
+- company: `56ef02eb-5b90-446b-bbaa-54dcfccefaf6`
+- agent: `25d3a8f2-684b-4d85-a66b-639639b6b5ed`
+- issue: `STU-5` / `b9b65393-85b2-43d0-a57e-80b5ac40f515`
+- successful run: `5ee70dd1-064c-47d5-b934-b834c60de49a`
+- agent comment: `ddea9910-29b1-4014-a3f6-3f7bad891333`
+- result: one direct `hermes_local` assignment run posted the useful comment,
+  attributed it to the agent/run, and left the issue `done`
 
 ## 13. Sync The Knowledge Repo
 

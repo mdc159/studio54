@@ -14,6 +14,11 @@ Primary related docs:
 Paperclip can run Hermes through the `hermes_local` adapter when all of the
 following are true.
 
+The active Paperclip execution contract is direct per-company `hermes_local`.
+The 1215 Paperclip -> Hermes gateway path is optional/future-state for
+Paperclip task execution until it has first-class issue/comment/result
+plumbing.
+
 ### Hermes Exists In The Paperclip Environment
 
 The Paperclip image must include a resolvable `hermes` CLI inside the Paperclip
@@ -138,6 +143,31 @@ If these fields are only present in heartbeat context, `hermes-paperclip-adapter
 can degrade into its no-task heartbeat branch even during an issue assignment
 wake.
 
+### Task Completion Contract
+
+Paperclip is the system of record for issue/task state. A successful
+`hermes_local` process exit does not by itself mean the assigned issue is done.
+
+For bounded assigned work, the inner Hermes agent must explicitly close the
+issue through Paperclip. The proven final action is one run-scoped PATCH that
+includes both:
+
+```json
+{
+  "status": "done",
+  "comment": "DONE: <completion summary>"
+}
+```
+
+The request must include:
+
+- `Authorization: Bearer $PAPERCLIP_API_KEY`
+- `X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID`
+
+This single PATCH lets Paperclip persist the terminal issue state and create
+the completion comment with the same run attribution. Paperclip should not infer
+task completion merely from adapter/process success.
+
 ## Known Observed Failure Modes
 
 These were observed during the fresh-node proof work:
@@ -158,6 +188,10 @@ These were observed during the fresh-node proof work:
   instead of the shared substrate Postgres on `127.0.0.1:5433`.
 - Inner Hermes saw `memory.provider: honcho`, but Honcho was unusable until
   the Paperclip image's Hermes venv included `honcho-ai`.
+- A successful bounded run posted the requested issue comment but left the
+  issue `in_progress` when completion was split across separate comment and
+  status-update actions. The active prompt now directs the agent to complete
+  with one PATCH containing both `status: "done"` and `comment`.
 
 ## Proof Artifacts
 
@@ -218,6 +252,24 @@ Confirmed:
 - agent-authored comment confirmed Honcho tools were active and
   `honcho_profile` succeeded
 
+### Direct Completion Proof
+
+Fresh-node direct-path completion proof on `srv1264451`:
+
+- company: `56ef02eb-5b90-446b-bbaa-54dcfccefaf6`
+- agent: `25d3a8f2-684b-4d85-a66b-639639b6b5ed`
+- issue: `STU-5` / `b9b65393-85b2-43d0-a57e-80b5ac40f515`
+- successful run: `5ee70dd1-064c-47d5-b934-b834c60de49a`
+- agent comment: `ddea9910-29b1-4014-a3f6-3f7bad891333`
+
+Confirmed:
+
+- direct `hermes_local` assignment wake completed in one run
+- useful issue comment was authored by the assigned agent
+- `createdByRunId` matched the assignment run
+- issue ended in `done`
+- no direct-path wake-loop regression was observed
+
 ## Verification Commands Used
 
 Passed:
@@ -241,4 +293,5 @@ environment was not prepared.
 - Whether the `hermes-paperclip-adapter` package should also be updated so it
   can read task fields from heartbeat context directly.
 - Whether a future host-side wrapper/gateway should replace the in-container CLI
-  model for stricter separation. This is not required for the proven contract.
+  model for stricter separation. This is optional/future-state and is not the
+  active Paperclip execution contract.

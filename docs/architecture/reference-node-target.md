@@ -91,6 +91,15 @@ Paperclip-local agent adapters. That means some runtime tooling, including the
 proven `hermes_local` path, must exist inside the Paperclip image rather than
 only on the host.
 
+The active Paperclip execution contract is direct per-company `hermes_local`.
+The 1215 Paperclip -> Hermes gateway path is optional/future-state for
+Paperclip task execution on this node.
+
+For bounded assigned work, issue completion is explicit: the inner Hermes agent
+must close the issue through Paperclip with a final PATCH that includes both
+`status: "done"` and a completion comment. Paperclip does not treat adapter or
+process success alone as task completion.
+
 ## Exposure Contract
 
 ### Loopback

@@ -23,8 +23,9 @@ Primary related docs:
 5. Configure `adapterConfig.env.HERMES_HOME`.
 6. Create one local Paperclip issue assigned to the agent.
 7. Trigger normal heartbeat adapter execution.
-8. Verify the agent-authored comment/result.
-9. Keep one durable test company unless there is a clear reason to archive it.
+8. Verify the agent-authored completion comment/result.
+9. Verify the issue reaches `done` through the agent's explicit final PATCH.
+10. Keep one durable test company unless there is a clear reason to archive it.
 
 ## Company Creation
 
@@ -94,6 +95,12 @@ The proof issue should ask for a minimal observable result, such as confirming:
 
 The proof should not require external repos or knowledge exchange access.
 
+For bounded assigned work, include an explicit completion instruction: the
+agent must close the issue through Paperclip after posting its final result.
+The active direct-path contract is one PATCH that includes both `status: "done"`
+and completion comment content. See
+[paperclip-hermes-local-contract.md](paperclip-hermes-local-contract.md#task-completion-contract).
+
 ## First Execution
 
 Trigger the normal agent execution path that causes the adapter to run.
@@ -111,6 +118,10 @@ A bootstrap proof is successful when:
 - the heartbeat run succeeds
 - the run uses `hermes_local`
 - the agent-authored comment/result exists
+- the comment has the assigned agent as `authorAgentId`
+- the comment has the heartbeat run as `createdByRunId`
+- the assigned issue ends in `done` through an explicit final PATCH from the
+  agent
 - the comment/result confirms the expected company `HERMES_HOME`
 - `config.yaml` exists under that `HERMES_HOME`
 - no ambient `/root/.hermes` memory is used for the company run
@@ -118,6 +129,9 @@ A bootstrap proof is successful when:
 The issue/comment/result path is sufficient for the proof. The first proof does
 not need routines or a broader automation loop unless that is the only wake
 path available.
+
+Paperclip does not infer task completion merely from adapter/process success.
+The agent is responsible for closing the issue through the Paperclip API.
 
 ## Durable Test Companies
 
