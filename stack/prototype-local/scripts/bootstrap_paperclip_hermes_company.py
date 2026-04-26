@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bootstrap one Paperclip company for the direct hermes_local path."""
+"""Bootstrap a Paperclip company for the direct hermes_local path."""
 
 from __future__ import annotations
 
@@ -38,6 +38,42 @@ Post one concise final completion comment that includes:
 Do not create subtasks.
 Do not modify infrastructure.
 Close this issue explicitly through one final PATCH containing status "done" and the completion comment.
+"""
+DEFAULT_TOPOLOGY = "one-agent"
+DEFAULT_MANAGER_NAME = "Direct Hermes Manager"
+DEFAULT_MANAGER_ROLE = "general"
+DEFAULT_MANAGER_TITLE = "Manager"
+DEFAULT_WORKER_NAME = "Direct Hermes Worker"
+DEFAULT_WORKER_ROLE = "general"
+DEFAULT_WORKER_TITLE = "Worker"
+DEFAULT_MANAGER_WORKER_ISSUE_TITLE = "Validate manager worker direct hermes_local bootstrap"
+DEFAULT_MANAGER_WORKER_ISSUE_BODY = """Validate this manager/worker company bootstrap on the active direct hermes_local path.
+
+Worker agent:
+- name: {worker_name}
+- id: {worker_id}
+
+Manager responsibilities:
+1. Create exactly one delegated child issue assigned to the worker agent above.
+2. The child issue must be bounded and ask the worker to report this one requirement: both bootstrapped agents use adapterType hermes_local and the same company-scoped HERMES_HOME.
+3. Link the child to this parent issue. If Paperclip exposes this issue id in the task context, send it as parentId when creating the child.
+4. Do not create more than one child issue.
+5. Do not modify infrastructure.
+6. On the first run, after creating the child issue, post at most one PENDING comment and stop. Do not keep polling or waiting inside the same run.
+7. Do not close this parent issue until the worker child issue is done.
+8. When woken after the worker child is done, post one concise final completion comment on this parent issue containing:
+   - the worker finding
+   - whether the child issue was linked to this parent
+   - whether the manager/worker lifecycle completed correctly
+9. Close this parent explicitly through one final PATCH containing status "done" and the completion comment.
+10. After the final PATCH succeeds, stop. Do not post additional comments or continue working.
+
+Worker task requirement:
+- post one concise final completion comment
+- close the worker issue explicitly through one final PATCH containing status "done" and the completion comment
+- do not create subtasks
+- do not modify infrastructure
+- after the final PATCH succeeds, stop
 """
 
 
@@ -304,6 +340,18 @@ def find_or_create_validation_issue(
     return created, True
 
 
+def agent_summary(agent: dict[str, Any], *, created: bool, model: str) -> dict[str, Any]:
+    return {
+        "id": agent.get("id"),
+        "name": agent.get("name"),
+        "role": agent.get("role"),
+        "title": agent.get("title"),
+        "created": created,
+        "adapterType": agent.get("adapterType"),
+        "model": model,
+    }
+
+
 def read_honcho_ai_peer(host_honcho_path: str) -> str | None:
     path = Path(host_honcho_path)
     if not path.exists():
@@ -316,32 +364,28 @@ def read_honcho_ai_peer(host_honcho_path: str) -> str | None:
     return value if isinstance(value, str) else None
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help="Paperclip base URL.")
-    parser.add_argument("--api-token", default=None, help="Optional Paperclip bearer token.")
-    parser.add_argument("--health-timeout", type=int, default=300, help="Seconds to wait for Paperclip health.")
-    parser.add_argument("--company-name", required=True, help="Company name to create or reuse.")
-    parser.add_argument("--company-description", default=DEFAULT_COMPANY_DESCRIPTION)
-    parser.add_argument("--budget-monthly-cents", type=int, default=0)
-    parser.add_argument("--agent-name", default=DEFAULT_AGENT_NAME)
-    parser.add_argument("--agent-role", default=DEFAULT_AGENT_ROLE)
-    parser.add_argument("--agent-title", default=DEFAULT_AGENT_TITLE)
-    parser.add_argument("--model", default=None, help="Pinned model. Defaults to HERMES_MODEL_DEFAULT or script default.")
-    parser.add_argument("--issue-title", default=DEFAULT_ISSUE_TITLE)
-    parser.add_argument("--issue-body", default=DEFAULT_ISSUE_BODY)
-    parser.add_argument("--issue-body-file", type=Path, default=None)
-    parser.add_argument("--always-create-issue", action="store_true", help="Do not reuse an existing open validation issue.")
-    parser.add_argument("--source", type=Path, default=None, help="Source env file for Hermes projection.")
-    parser.add_argument("--instance-id", default=None)
-    parser.add_argument("--container-paperclip-home", default="/paperclip")
-    args = parser.parse_args()
+def render_manager_worker_issue_body(
+    template: str,
+    *,
+    manager_name: str,
+    manager_id: str,
+    worker_name: str,
+    worker_id: str,
+) -> str:
+    replacements = {
+        "{manager_name}": manager_name,
+        "{manager_id}": manager_id,
+        "{worker_name}": worker_name,
+        "{worker_id}": worker_id,
+    }
+    rendered = template
+    for needle, value in replacements.items():
+        rendered = rendered.replace(needle, value)
+    return rendered
 
-    values = source_values(args.source)
+
+def bootstrap_one_agent(args: argparse.Namespace, *, values: dict[str, str], model: str, issue_body: str) -> dict[str, Any]:
     resolved_instance_id = instance_id(values, args.instance_id)
-    model = args.model or values.get("HERMES_MODEL_DEFAULT", "").strip() or DEFAULT_HERMES_MODEL
-    issue_body = args.issue_body_file.read_text() if args.issue_body_file else args.issue_body
-
     health = wait_for_paperclip(args.base_url, token=args.api_token, timeout_seconds=args.health_timeout)
     company, company_created = find_or_create_company(
         args.base_url,
@@ -389,27 +433,21 @@ def main() -> int:
         always_create=args.always_create_issue,
     )
 
-    summary = {
+    return {
         "paperclip": {
             "baseUrl": args.base_url.rstrip("/"),
             "health": health,
         },
+        "topology": "one-agent",
         "company": {
             "id": company_id,
             "name": company.get("name"),
             "created": company_created,
         },
-        "agent": {
-            "id": agent_id,
-            "name": agent.get("name"),
-            "role": agent.get("role"),
-            "title": agent.get("title"),
-            "created": agent_created,
-            "adapterType": agent.get("adapterType"),
-            "model": model,
-        },
+        "agent": agent_summary(agent, created=agent_created, model=model),
         "hermes": {
             "containerHome": hermes_home,
+            "sharedCompanyHome": True,
             "initialPrepare": initial_prepare,
             "finalPrepare": final_prepare,
             "honchoAiPeer": read_honcho_ai_peer(final_prepare["hostHonchoPath"]),
@@ -427,6 +465,176 @@ def main() -> int:
             "issueCommentsPath": f"/api/issues/{issue.get('id')}/comments",
         },
     }
+
+
+def bootstrap_manager_worker(args: argparse.Namespace, *, values: dict[str, str], model: str, issue_body: str) -> dict[str, Any]:
+    resolved_instance_id = instance_id(values, args.instance_id)
+    health = wait_for_paperclip(args.base_url, token=args.api_token, timeout_seconds=args.health_timeout)
+    company, company_created = find_or_create_company(
+        args.base_url,
+        token=args.api_token,
+        name=args.company_name,
+        description=args.company_description,
+        budget_monthly_cents=args.budget_monthly_cents,
+    )
+    company_id = str(company["id"])
+    hermes_home = container_hermes_home(
+        company_id,
+        container_paperclip_home=args.container_paperclip_home,
+        instance=resolved_instance_id,
+    )
+    initial_prepare = run_prepare(
+        company_id=company_id,
+        agent_id=None,
+        source=args.source,
+        instance=args.instance_id,
+    )
+    manager, manager_created = find_or_create_agent(
+        args.base_url,
+        token=args.api_token,
+        company_id=company_id,
+        name=args.manager_name,
+        role=args.manager_role,
+        title=args.manager_title,
+        model=model,
+        hermes_home=hermes_home,
+    )
+    manager_id = str(manager["id"])
+    manager_prepare = run_prepare(
+        company_id=company_id,
+        agent_id=manager_id,
+        source=args.source,
+        instance=args.instance_id,
+    )
+    worker, worker_created = find_or_create_agent(
+        args.base_url,
+        token=args.api_token,
+        company_id=company_id,
+        name=args.worker_name,
+        role=args.worker_role,
+        title=args.worker_title,
+        model=model,
+        hermes_home=hermes_home,
+    )
+    worker_id = str(worker["id"])
+    worker_prepare = run_prepare(
+        company_id=company_id,
+        agent_id=worker_id,
+        source=args.source,
+        instance=args.instance_id,
+    )
+    parent_body = render_manager_worker_issue_body(
+        issue_body,
+        worker_name=worker.get("name") or args.worker_name,
+        worker_id=worker_id,
+        manager_name=manager.get("name") or args.manager_name,
+        manager_id=manager_id,
+    )
+    parent_issue, parent_issue_created = find_or_create_validation_issue(
+        args.base_url,
+        token=args.api_token,
+        company_id=company_id,
+        agent_id=manager_id,
+        title=args.manager_worker_issue_title,
+        body=parent_body,
+        always_create=args.always_create_issue,
+    )
+
+    return {
+        "paperclip": {
+            "baseUrl": args.base_url.rstrip("/"),
+            "health": health,
+        },
+        "topology": "manager-worker",
+        "company": {
+            "id": company_id,
+            "name": company.get("name"),
+            "created": company_created,
+        },
+        "manager": agent_summary(manager, created=manager_created, model=model),
+        "worker": agent_summary(worker, created=worker_created, model=model),
+        "hermes": {
+            "containerHome": hermes_home,
+            "sharedCompanyHome": True,
+            "homeDecision": (
+                "manager and worker share the current company-scoped HERMES_HOME; "
+                "per-agent Hermes homes are not part of this bootstrap slice"
+            ),
+            "initialPrepare": initial_prepare,
+            "managerPrepare": manager_prepare,
+            "workerPrepare": worker_prepare,
+            "honchoAiPeer": read_honcho_ai_peer(worker_prepare["hostHonchoPath"]),
+            "honchoAiPeerNote": "shared home is rendered last for the worker agent",
+        },
+        "validationIssue": {
+            "id": parent_issue.get("id"),
+            "identifier": parent_issue.get("identifier"),
+            "title": parent_issue.get("title"),
+            "status": parent_issue.get("status"),
+            "created": parent_issue_created,
+        },
+        "expectedFlow": {
+            "managerCreatesChildCount": 1,
+            "workerCompletesChild": True,
+            "managerClosesParentAfterChildDone": True,
+        },
+        "nextVerification": {
+            "parentIssuePath": f"/api/issues/{parent_issue.get('id')}",
+            "parentIssueRunsPath": f"/api/issues/{parent_issue.get('identifier') or parent_issue.get('id')}/runs",
+            "parentIssueCommentsPath": f"/api/issues/{parent_issue.get('id')}/comments",
+            "companyIssuesPath": f"/api/companies/{company_id}/issues",
+        },
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help="Paperclip base URL.")
+    parser.add_argument("--api-token", default=None, help="Optional Paperclip bearer token.")
+    parser.add_argument("--health-timeout", type=int, default=300, help="Seconds to wait for Paperclip health.")
+    parser.add_argument(
+        "--topology",
+        choices=("one-agent", "manager-worker"),
+        default=DEFAULT_TOPOLOGY,
+        help="Company shape to bootstrap.",
+    )
+    parser.add_argument("--company-name", required=True, help="Company name to create or reuse.")
+    parser.add_argument("--company-description", default=DEFAULT_COMPANY_DESCRIPTION)
+    parser.add_argument("--budget-monthly-cents", type=int, default=0)
+    parser.add_argument("--agent-name", default=DEFAULT_AGENT_NAME)
+    parser.add_argument("--agent-role", default=DEFAULT_AGENT_ROLE)
+    parser.add_argument("--agent-title", default=DEFAULT_AGENT_TITLE)
+    parser.add_argument("--model", default=None, help="Pinned model. Defaults to HERMES_MODEL_DEFAULT or script default.")
+    parser.add_argument("--issue-title", default=DEFAULT_ISSUE_TITLE)
+    parser.add_argument("--issue-body", default=DEFAULT_ISSUE_BODY)
+    parser.add_argument("--issue-body-file", type=Path, default=None)
+    parser.add_argument("--manager-name", default=DEFAULT_MANAGER_NAME)
+    parser.add_argument("--manager-role", default=DEFAULT_MANAGER_ROLE)
+    parser.add_argument("--manager-title", default=DEFAULT_MANAGER_TITLE)
+    parser.add_argument("--worker-name", default=DEFAULT_WORKER_NAME)
+    parser.add_argument("--worker-role", default=DEFAULT_WORKER_ROLE)
+    parser.add_argument("--worker-title", default=DEFAULT_WORKER_TITLE)
+    parser.add_argument("--manager-worker-issue-title", default=DEFAULT_MANAGER_WORKER_ISSUE_TITLE)
+    parser.add_argument("--manager-worker-issue-body", default=DEFAULT_MANAGER_WORKER_ISSUE_BODY)
+    parser.add_argument("--manager-worker-issue-body-file", type=Path, default=None)
+    parser.add_argument("--always-create-issue", action="store_true", help="Do not reuse an existing open validation issue.")
+    parser.add_argument("--source", type=Path, default=None, help="Source env file for Hermes projection.")
+    parser.add_argument("--instance-id", default=None)
+    parser.add_argument("--container-paperclip-home", default="/paperclip")
+    args = parser.parse_args()
+
+    values = source_values(args.source)
+    model = args.model or values.get("HERMES_MODEL_DEFAULT", "").strip() or DEFAULT_HERMES_MODEL
+    if args.topology == "one-agent":
+        issue_body = args.issue_body_file.read_text() if args.issue_body_file else args.issue_body
+        summary = bootstrap_one_agent(args, values=values, model=model, issue_body=issue_body)
+    else:
+        issue_body = (
+            args.manager_worker_issue_body_file.read_text()
+            if args.manager_worker_issue_body_file
+            else args.manager_worker_issue_body
+        )
+        summary = bootstrap_manager_worker(args, values=values, model=model, issue_body=issue_body)
     json.dump(summary, sys.stdout, indent=2, sort_keys=True)
     sys.stdout.write("\n")
     return 0
