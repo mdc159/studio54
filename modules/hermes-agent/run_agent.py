@@ -76,6 +76,7 @@ from tools.browser_tool import cleanup_browser
 from hermes_constants import OPENROUTER_BASE_URL
 
 # Agent internals extracted to agent/ package for modularity
+from agent.langfuse_probe import LangfuseGenerationProbe
 from agent.memory_manager import build_memory_context_block, sanitize_context
 from agent.retry_utils import jittered_backoff
 from agent.error_classifier import classify_api_error, FailoverReason
@@ -5580,7 +5581,20 @@ class AIAgent:
                     result["response"] = normalize_converse_response(raw_response)
                 else:
                     request_client_holder["client"] = self._create_request_openai_client(reason="chat_completion_request")
-                    result["response"] = request_client_holder["client"].chat.completions.create(**api_kwargs)
+                    probe = LangfuseGenerationProbe(
+                        provider=self.provider,
+                        model=self.model,
+                        base_url=self.base_url,
+                        streaming=False,
+                        api_mode=self.api_mode,
+                    )
+                    try:
+                        result["response"] = request_client_holder["client"].chat.completions.create(**api_kwargs)
+                    except Exception as exc:
+                        probe.finish(status="error", error=exc)
+                        raise
+                    else:
+                        probe.finish(status="success")
             except Exception as e:
                 result["error"] = e
             finally:
@@ -5940,7 +5954,18 @@ class AIAgent:
             # attempt's start, not a previous attempt's last chunk.
             last_chunk_time["t"] = time.time()
             self._touch_activity("waiting for provider response (streaming)")
-            stream = request_client_holder["client"].chat.completions.create(**stream_kwargs)
+            probe = LangfuseGenerationProbe(
+                provider=self.provider,
+                model=self.model,
+                base_url=self.base_url,
+                streaming=True,
+                api_mode=self.api_mode,
+            )
+            try:
+                stream = request_client_holder["client"].chat.completions.create(**stream_kwargs)
+            except Exception as exc:
+                probe.finish(status="error", error=exc)
+                raise
 
             # Capture rate limit headers from the initial HTTP response.
             # The OpenAI SDK Stream object exposes the underlying httpx
@@ -6085,6 +6110,7 @@ class AIAgent:
                 # Usage in the final chunk
                 if hasattr(chunk, "usage") and chunk.usage:
                     usage_obj = chunk.usage
+            probe.finish(status="success")
 
             # Build mock response matching non-streaming shape
             full_content = "".join(content_parts) or None
