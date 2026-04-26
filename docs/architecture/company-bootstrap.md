@@ -1,7 +1,7 @@
 # Company Bootstrap
 
-This document defines the minimal company bootstrap path that should eventually
-be automated by outer Hermes.
+This document defines the minimal company bootstrap path for the active direct
+`hermes_local` Paperclip architecture.
 
 It describes only the path proven or directly required by the fresh-node
 `hermes_local` proofs.
@@ -16,20 +16,47 @@ Primary related docs:
 
 ## Minimal Path
 
-1. Create a Paperclip company.
-2. Prepare an isolated company Hermes home.
-3. Create one agent using `hermes_local`.
-4. Pin the model.
-5. Configure `adapterConfig.env.HERMES_HOME`.
-6. Create one local Paperclip issue assigned to the agent.
-7. Trigger normal heartbeat adapter execution.
-8. Verify the agent-authored completion comment/result.
-9. Verify the issue reaches `done` through the agent's explicit final PATCH.
-10. Keep one durable test company unless there is a clear reason to archive it.
+The reference one-agent bootstrap path is:
+
+```bash
+python3 stack/prototype-local/scripts/bootstrap_paperclip_hermes_company.py \
+  --company-name "<company-name>" \
+  --company-description "<company-description>" \
+  --agent-name "<agent-name>" \
+  --agent-role general \
+  --agent-title "Operator" \
+  --model "<model>" \
+  --issue-title "<validation-issue-title>"
+```
+
+The script performs the proven direct-path sequence:
+
+1. Wait for Paperclip health.
+2. Create or reuse a Paperclip company by exact name.
+3. Prepare the isolated company Hermes home.
+4. Create or reuse one agent using `hermes_local`.
+5. Pin the model.
+6. Configure `adapterConfig.env.HERMES_HOME`.
+7. Rerender `honcho.json` with the final agent-aware AI peer.
+8. Create one local Paperclip validation issue assigned to the agent.
+9. Print a JSON summary with company, agent, Hermes home, Honcho peer, issue,
+   and verification API paths.
+
+The validation issue then runs through the normal assignment/heartbeat path.
+A successful proof verifies:
+
+1. The agent-authored completion comment/result exists.
+2. The comment has the assigned agent as `authorAgentId`.
+3. The comment has the heartbeat run as `createdByRunId`.
+4. The issue reaches `done` through the agent's explicit final PATCH.
+5. The company `HERMES_HOME` and `honcho.json` are company-scoped.
 
 ## Company Creation
 
-Create the company through Paperclip.
+The bootstrap script creates or reuses the company through Paperclip.
+
+If more than one company has the requested exact name, the script fails rather
+than choosing a hidden duplicate.
 
 The first proof kept:
 
@@ -43,7 +70,8 @@ These durable companies are useful for repeat runs and debugging.
 
 ## Isolated Hermes Home
 
-Prepare the company home with:
+The bootstrap script calls the lower-level preparation script before and after
+agent creation:
 
 ```bash
 python3 stack/prototype-local/scripts/prepare_paperclip_hermes_home.py \
@@ -58,16 +86,20 @@ Default container-visible path:
 
 The prepared tree must be owned by the Paperclip runtime UID/GID.
 
-The script also renders company-scoped `honcho.json`. If the first preparation
-happens before the Paperclip agent exists, rerun it with `--agent-id` after
-agent creation so the AI peer is `paperclip-agent-<agent-id>`.
+The preparation script also renders company-scoped `honcho.json`. The first
+preparation can happen before the Paperclip agent exists. The bootstrap script
+reruns preparation with `--agent-id` after agent creation so the AI peer is:
+
+```text
+paperclip-agent-<agent-id>
+```
 
 ## Agent Creation
 
-Create one Paperclip agent with:
+The bootstrap script creates or reuses one Paperclip agent with:
 
 - adapter type: `hermes_local`
-- pinned model: `google/gemini-2.5-flash`
+- pinned model
 - minimal explicit adapter env:
   - `HERMES_HOME=/paperclip/instances/default/companies/<company-id>/hermes-home`
 
@@ -85,7 +117,7 @@ from the projected per-company Hermes `.env`.
 
 ## First Issue
 
-Create one issue assigned to the test agent.
+The bootstrap script creates one validation issue assigned to the test agent.
 
 The proof issue should ask for a minimal observable result, such as confirming:
 
@@ -104,6 +136,26 @@ and completion comment content. See
 ## First Execution
 
 Trigger the normal agent execution path that causes the adapter to run.
+
+The reusable bootstrap proof produced:
+
+- company: `ee440385-653c-451d-9058-dc6aa76afd9f`
+- agent: `fceca8ee-bbc8-45a0-a853-420a7534c1b2`
+- issue: `BOO-1` / `8002bc7e-bf91-46c6-88d5-d6d111735bc3`
+- run: `8a6a5f36-d582-4986-8633-a2b578bee0ff`
+- comment: `a54ae77d-3fa6-4087-8968-47393c547158`
+
+Confirmed:
+
+- the script created the company, agent, company-scoped Hermes home, and
+  validation issue
+- `honcho.json` used `workspace = ee440385-653c-451d-9058-dc6aa76afd9f`
+- `honcho.json` used
+  `aiPeer = paperclip-agent-fceca8ee-bbc8-45a0-a853-420a7534c1b2`
+- the assigned `hermes_local` run succeeded
+- the useful final comment landed with correct agent/run attribution
+- the issue ended `done`
+- no wake-loop regression was observed after a quiet-period check
 
 The second proof used an assignment wake through the heartbeat adapter execution
 path and produced:
@@ -142,11 +194,16 @@ actively blocks follow-up debugging.
 
 ## Automation Boundary
 
-Outer Hermes should eventually drive this path as an operator workflow, but the
-repo currently proves the manual/API sequence, not a finished automation.
+The active repo-owned reference path is the one-agent bootstrap script. Older
+gateway-oriented bootstrap work, including `bootstrap_paperclip_ceo.py`, is
+historical/optional/future-state and is not the active direct-path bootstrap
+contract.
+
+Outer Hermes may eventually drive this path as an operator workflow, but the
+current active contract is the reusable host-side script plus the normal
+Paperclip assignment/heartbeat execution path.
 
 ## Open Questions
 
-- The exact API wrapper for Big Hermes to create companies and agents is not
-  finalized.
 - The archival policy for old durable test companies is not finalized.
+- Manager/worker company bootstrap is not implemented by this script.

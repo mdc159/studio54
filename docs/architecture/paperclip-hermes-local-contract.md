@@ -48,6 +48,12 @@ The preparation script is:
 
 - `stack/prototype-local/scripts/prepare_paperclip_hermes_home.py`
 
+The reference one-agent bootstrap script that drives company creation, home
+preparation, agent creation, agent-aware Honcho rendering, and validation issue
+creation is:
+
+- `stack/prototype-local/scripts/bootstrap_paperclip_hermes_company.py`
+
 Default target path:
 
 - `/paperclip/instances/<instance-id>/companies/<company-id>/hermes-home`
@@ -270,6 +276,29 @@ Confirmed:
 - issue ended in `done`
 - no direct-path wake-loop regression was observed
 
+### Reusable One-Agent Bootstrap Proof
+
+Fresh-node reusable bootstrap proof on `srv1264451`:
+
+- company: `ee440385-653c-451d-9058-dc6aa76afd9f`
+- agent: `fceca8ee-bbc8-45a0-a853-420a7534c1b2`
+- issue: `BOO-1` / `8002bc7e-bf91-46c6-88d5-d6d111735bc3`
+- successful run: `8a6a5f36-d582-4986-8633-a2b578bee0ff`
+- agent comment: `a54ae77d-3fa6-4087-8968-47393c547158`
+
+Confirmed:
+
+- `bootstrap_paperclip_hermes_company.py` created the company, one
+  `hermes_local` agent, company-scoped Hermes home, and validation issue
+- the generated `honcho.json` used the Paperclip company ID as workspace
+- the generated `honcho.json` used
+  `aiPeer = paperclip-agent-fceca8ee-bbc8-45a0-a853-420a7534c1b2`
+- the assigned run succeeded through the direct `hermes_local` path
+- the final completion comment was authored by the assigned agent
+- `createdByRunId` matched the assignment run
+- the issue ended `done`
+- no direct-path wake-loop regression was observed after a quiet-period check
+
 ## Verification Commands Used
 
 Passed:
@@ -277,6 +306,7 @@ Passed:
 ```bash
 python3 -m py_compile stack/prototype-local/scripts/prepare_paperclip_hermes_home.py
 python3 -m py_compile stack/prototype-local/scripts/project_hermes_runtime.py
+python3 -m py_compile stack/prototype-local/scripts/bootstrap_paperclip_hermes_company.py
 ```
 
 Passed inside the prepared Paperclip container on `srv1264451`:

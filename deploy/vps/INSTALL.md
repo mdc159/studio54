@@ -273,23 +273,50 @@ Expected:
 - the generated unit config disables Honcho's module-local developer `.env`
   from overriding the systemd environment
 
-## 11. Prepare A Company Hermes Home
+## 11. Bootstrap A One-Agent hermes_local Company
 
-After creating a Paperclip company, prepare its isolated Hermes home:
+Use the reference one-agent bootstrap script for the active direct
+`hermes_local` path:
 
 ```bash
-python3 /opt/studio54-bootstrap/stack/prototype-local/scripts/prepare_paperclip_hermes_home.py \
-  --company-id <company-id>
+cd /opt/studio54-bootstrap
+python3 stack/prototype-local/scripts/bootstrap_paperclip_hermes_company.py \
+  --company-name "<company-name>" \
+  --company-description "<company-description>" \
+  --agent-name "<agent-name>" \
+  --agent-role general \
+  --agent-title "Operator" \
+  --model "<model>" \
+  --issue-title "<validation-issue-title>"
 ```
 
-When running the script on the host, it prepares the Docker volume path derived
-from `PAPERCLIP_CONFIG_HOST_PATH`. The corresponding container-visible path is:
+For a fresh validation run, add:
+
+```bash
+--always-create-issue
+```
+
+The script:
+
+- waits for Paperclip health
+- creates or reuses a company by exact name
+- prepares the company-scoped Hermes home
+- creates or reuses one `hermes_local` agent
+- pins the model
+- configures `adapterConfig.env.HERMES_HOME`
+- rerenders `honcho.json` with `aiPeer = paperclip-agent-<agent-id>`
+- creates one assigned validation issue
+- prints a JSON summary with company, agent, Hermes home, Honcho peer, issue,
+  and verification API paths
+
+The script prepares the Docker volume path derived from
+`PAPERCLIP_CONFIG_HOST_PATH`. The corresponding container-visible Hermes home is:
 
 ```text
 /paperclip/instances/default/companies/<company-id>/hermes-home
 ```
 
-The script creates:
+The prepared home includes:
 
 - `.env`
 - `config.yaml`
@@ -302,48 +329,20 @@ The script creates:
 It also sets ownership for the company directory and Hermes home to the
 Paperclip runtime UID/GID.
 
-After creating the agent, rerun the preparation command with `--agent-id` so
-`honcho.json` uses the final per-agent AI peer:
+Older gateway-oriented bootstrap paths, including
+`bootstrap_paperclip_ceo.py`, are historical/optional/future-state. They are
+not the active direct `hermes_local` bootstrap contract.
 
-```bash
-python3 /opt/studio54-bootstrap/stack/prototype-local/scripts/prepare_paperclip_hermes_home.py \
-  --company-id <company-id> \
-  --agent-id <agent-id>
-```
+## 12. Verify The Bootstrap Proof
 
-## 12. Create A hermes_local Agent
-
-Create a Paperclip agent with:
-
-- `adapterType`: `hermes_local`
-- pinned model: `google/gemini-2.5-flash`
-- minimal env:
-  - `HERMES_HOME=/paperclip/instances/default/companies/<company-id>/hermes-home`
-
-Adapter config shape:
-
-```json
-{
-  "model": "google/gemini-2.5-flash",
-  "env": {
-    "HERMES_HOME": "/paperclip/instances/default/companies/<company-id>/hermes-home"
-  }
-}
-```
-
-## 13. Run The Minimal Proof
-
-Create one local Paperclip issue assigned to the `hermes_local` agent.
-
-The issue should ask the agent to confirm:
+The validation issue should ask the agent to confirm:
 
 - the active `HERMES_HOME`
 - whether `config.yaml` exists
 - whether `honcho.json` exists
-- whether Honcho is active when `memory.provider` is set to `honcho` in that
-  company-scoped `config.yaml`
+- whether the issue completed through the direct-path final PATCH contract
 
-Trigger the normal agent execution path and verify:
+Verify:
 
 - heartbeat run succeeds
 - agent-authored comment/result exists
@@ -366,6 +365,14 @@ Completion contract:
 Keep one durable test company unless there is a reason to archive it.
 
 Known successful proof artifacts on `srv1264451`:
+
+Reusable one-agent bootstrap proof:
+
+- company: `ee440385-653c-451d-9058-dc6aa76afd9f`
+- agent: `fceca8ee-bbc8-45a0-a853-420a7534c1b2`
+- issue: `BOO-1` / `8002bc7e-bf91-46c6-88d5-d6d111735bc3`
+- successful run: `8a6a5f36-d582-4986-8633-a2b578bee0ff`
+- agent comment: `a54ae77d-3fa6-4087-8968-47393c547158`
 
 First proof:
 
