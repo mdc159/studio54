@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "topology": "one-agent",
+  "company": {
+    "name": "Template Direct Hermes One Agent",
+    "description": "One-agent Paperclip company using direct per-company hermes_local.",
+    "budgetMonthlyCents": 0
+  },
+  "runtime": {
+    "adapterType": "hermes_local",
+    "homeScope": "company",
+    "model": "qwen/qwen3.6-plus"
+  },
+  "agents": {
+    "operator": {
+      "name": "Template Direct Hermes Operator",
+      "role": "general",
+      "title": "Operator"
+    }
+  },
+  "validation": {
+    "title": "Validate template one-agent direct hermes_local bootstrap",
+    "body": "Validate this one-agent company bootstrap from a JSON template on the active direct hermes_local path.\n\nPost one concise final completion comment that includes:\n1. the active HERMES_HOME\n2. whether config.yaml exists\n3. whether honcho.json exists\n4. whether this issue completed through the direct-path final PATCH contract\n\nDo not create subtasks.\nDo not modify infrastructure.\nClose this issue explicitly through one final PATCH containing status \"done\" and the completion comment.",
+    "alwaysCreateIssue": false
+  }
+}

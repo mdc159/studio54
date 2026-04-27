@@ -76,10 +76,186 @@ Worker task requirement:
 - do not modify infrastructure
 - after the final PATCH succeeds, stop
 """
+TEMPLATE_TOPOLOGIES = {"one-agent", "manager-worker"}
+TEMPLATE_ROLES = {"ceo", "cto", "cmo", "cfo", "engineer", "designer", "pm", "qa", "devops", "researcher", "general"}
+TEMPLATE_TOP_LEVEL_KEYS = {"version", "topology", "company", "runtime", "agents", "validation"}
+TEMPLATE_COMPANY_KEYS = {"name", "description", "budgetMonthlyCents"}
+TEMPLATE_RUNTIME_KEYS = {"model", "adapterType", "homeScope"}
+TEMPLATE_AGENT_KEYS = {"name", "role", "title"}
+TEMPLATE_VALIDATION_KEYS = {"title", "body", "alwaysCreateIssue"}
 
 
 def api_url(base_url: str, path: str) -> str:
     return f"{base_url.rstrip('/')}{path}"
+
+
+def reject_unknown_keys(value: dict[str, Any], allowed: set[str], *, path: str) -> None:
+    unknown = sorted(set(value) - allowed)
+    if unknown:
+        raise SystemExit(f"template {path} has unsupported key(s): {', '.join(unknown)}")
+
+
+def template_object(value: Any, *, path: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise SystemExit(f"template {path} must be an object")
+    return value
+
+
+def optional_template_string(value: Any, *, path: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise SystemExit(f"template {path} must be a non-empty string")
+    return value
+
+
+def optional_template_int(value: Any, *, path: str) -> int | None:
+    if value is None:
+        return None
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise SystemExit(f"template {path} must be an integer")
+    return value
+
+
+def optional_template_bool(value: Any, *, path: str) -> bool | None:
+    if value is None:
+        return None
+    if not isinstance(value, bool):
+        raise SystemExit(f"template {path} must be a boolean")
+    return value
+
+
+def load_template(path: Path) -> dict[str, Any]:
+    try:
+        parsed = json.loads(path.read_text())
+    except FileNotFoundError as exc:
+        raise SystemExit(f"template file not found: {path}") from exc
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"template file is not valid JSON: {path}: {exc}") from exc
+    return template_object(parsed, path="$")
+
+
+def validate_agent_template(value: Any, *, path: str) -> dict[str, Any]:
+    agent = template_object(value, path=path)
+    reject_unknown_keys(agent, TEMPLATE_AGENT_KEYS, path=path)
+    optional_template_string(agent.get("name"), path=f"{path}.name")
+    role = optional_template_string(agent.get("role"), path=f"{path}.role")
+    if role and role not in TEMPLATE_ROLES:
+        raise SystemExit(f"template {path}.role must be one of: {', '.join(sorted(TEMPLATE_ROLES))}")
+    optional_template_string(agent.get("title"), path=f"{path}.title")
+    return agent
+
+
+def validate_template(template: dict[str, Any], *, effective_topology: str | None = None) -> dict[str, Any]:
+    reject_unknown_keys(template, TEMPLATE_TOP_LEVEL_KEYS, path="$")
+    version = template.get("version", 1)
+    if version != 1:
+        raise SystemExit("template version must be 1")
+
+    topology = optional_template_string(template.get("topology"), path="$.topology") or DEFAULT_TOPOLOGY
+    if topology not in TEMPLATE_TOPOLOGIES:
+        raise SystemExit(f"template $.topology must be one of: {', '.join(sorted(TEMPLATE_TOPOLOGIES))}")
+    topology = effective_topology or topology
+    if topology not in TEMPLATE_TOPOLOGIES:
+        raise SystemExit(f"effective topology must be one of: {', '.join(sorted(TEMPLATE_TOPOLOGIES))}")
+
+    company = template_object(template.get("company", {}), path="$.company")
+    reject_unknown_keys(company, TEMPLATE_COMPANY_KEYS, path="$.company")
+    optional_template_string(company.get("name"), path="$.company.name")
+    optional_template_string(company.get("description"), path="$.company.description")
+    optional_template_int(company.get("budgetMonthlyCents"), path="$.company.budgetMonthlyCents")
+
+    runtime = template_object(template.get("runtime", {}), path="$.runtime")
+    reject_unknown_keys(runtime, TEMPLATE_RUNTIME_KEYS, path="$.runtime")
+    optional_template_string(runtime.get("model"), path="$.runtime.model")
+    adapter_type = optional_template_string(runtime.get("adapterType"), path="$.runtime.adapterType")
+    if adapter_type and adapter_type != "hermes_local":
+        raise SystemExit("template $.runtime.adapterType must be 'hermes_local'")
+    home_scope = optional_template_string(runtime.get("homeScope"), path="$.runtime.homeScope")
+    if home_scope and home_scope != "company":
+        raise SystemExit("template $.runtime.homeScope must be 'company'")
+
+    agents = template_object(template.get("agents", {}), path="$.agents")
+    allowed_agents = {"operator"} if topology == "one-agent" else {"manager", "worker"}
+    reject_unknown_keys(agents, allowed_agents, path="$.agents")
+    for key in sorted(allowed_agents):
+        if key in agents:
+            validate_agent_template(agents[key], path=f"$.agents.{key}")
+
+    validation = template_object(template.get("validation", {}), path="$.validation")
+    reject_unknown_keys(validation, TEMPLATE_VALIDATION_KEYS, path="$.validation")
+    optional_template_string(validation.get("title"), path="$.validation.title")
+    optional_template_string(validation.get("body"), path="$.validation.body")
+    optional_template_bool(validation.get("alwaysCreateIssue"), path="$.validation.alwaysCreateIssue")
+
+    return template
+
+
+def cli_has(argv: list[str], flag: str) -> bool:
+    return any(arg == flag or arg.startswith(f"{flag}=") for arg in argv)
+
+
+def apply_template(args: argparse.Namespace, *, argv: list[str]) -> None:
+    if not args.template_file:
+        return
+
+    template = load_template(args.template_file)
+    requested_topology = template.get("topology")
+    if requested_topology and not cli_has(argv, "--topology"):
+        args.topology = requested_topology
+    validate_template(template, effective_topology=args.topology)
+
+    company = template.get("company", {})
+    runtime = template.get("runtime", {})
+    agents = template.get("agents", {})
+    validation = template.get("validation", {})
+
+    if "name" in company and not cli_has(argv, "--company-name"):
+        args.company_name = company["name"]
+    if "description" in company and not cli_has(argv, "--company-description"):
+        args.company_description = company["description"]
+    if "budgetMonthlyCents" in company and not cli_has(argv, "--budget-monthly-cents"):
+        args.budget_monthly_cents = company["budgetMonthlyCents"]
+    if "model" in runtime and not cli_has(argv, "--model"):
+        args.model = runtime["model"]
+    if "alwaysCreateIssue" in validation and not cli_has(argv, "--always-create-issue"):
+        args.always_create_issue = validation["alwaysCreateIssue"]
+
+    if args.topology == "one-agent":
+        operator = agents.get("operator", {})
+        if "name" in operator and not cli_has(argv, "--agent-name"):
+            args.agent_name = operator["name"]
+        if "role" in operator and not cli_has(argv, "--agent-role"):
+            args.agent_role = operator["role"]
+        if "title" in operator and not cli_has(argv, "--agent-title"):
+            args.agent_title = operator["title"]
+        if "title" in validation and not cli_has(argv, "--issue-title"):
+            args.issue_title = validation["title"]
+        if "body" in validation and not cli_has(argv, "--issue-body") and not cli_has(argv, "--issue-body-file"):
+            args.issue_body = validation["body"]
+    else:
+        manager = agents.get("manager", {})
+        worker = agents.get("worker", {})
+        if "name" in manager and not cli_has(argv, "--manager-name"):
+            args.manager_name = manager["name"]
+        if "role" in manager and not cli_has(argv, "--manager-role"):
+            args.manager_role = manager["role"]
+        if "title" in manager and not cli_has(argv, "--manager-title"):
+            args.manager_title = manager["title"]
+        if "name" in worker and not cli_has(argv, "--worker-name"):
+            args.worker_name = worker["name"]
+        if "role" in worker and not cli_has(argv, "--worker-role"):
+            args.worker_role = worker["role"]
+        if "title" in worker and not cli_has(argv, "--worker-title"):
+            args.worker_title = worker["title"]
+        if "title" in validation and not cli_has(argv, "--manager-worker-issue-title"):
+            args.manager_worker_issue_title = validation["title"]
+        if (
+            "body" in validation
+            and not cli_has(argv, "--manager-worker-issue-body")
+            and not cli_has(argv, "--manager-worker-issue-body-file")
+        ):
+            args.manager_worker_issue_body = validation["body"]
 
 
 def json_request(
@@ -590,6 +766,12 @@ def bootstrap_manager_worker(args: argparse.Namespace, *, values: dict[str, str]
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--template-file",
+        type=Path,
+        default=None,
+        help="JSON company template. CLI flags override template values.",
+    )
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help="Paperclip base URL.")
     parser.add_argument("--api-token", default=None, help="Optional Paperclip bearer token.")
     parser.add_argument("--health-timeout", type=int, default=300, help="Seconds to wait for Paperclip health.")
@@ -599,7 +781,7 @@ def main() -> int:
         default=DEFAULT_TOPOLOGY,
         help="Company shape to bootstrap.",
     )
-    parser.add_argument("--company-name", required=True, help="Company name to create or reuse.")
+    parser.add_argument("--company-name", default=None, help="Company name to create or reuse.")
     parser.add_argument("--company-description", default=DEFAULT_COMPANY_DESCRIPTION)
     parser.add_argument("--budget-monthly-cents", type=int, default=0)
     parser.add_argument("--agent-name", default=DEFAULT_AGENT_NAME)
@@ -622,7 +804,11 @@ def main() -> int:
     parser.add_argument("--source", type=Path, default=None, help="Source env file for Hermes projection.")
     parser.add_argument("--instance-id", default=None)
     parser.add_argument("--container-paperclip-home", default="/paperclip")
-    args = parser.parse_args()
+    argv = sys.argv[1:]
+    args = parser.parse_args(argv)
+    apply_template(args, argv=argv)
+    if not args.company_name:
+        raise SystemExit("--company-name is required unless provided by --template-file")
 
     values = source_values(args.source)
     model = args.model or values.get("HERMES_MODEL_DEFAULT", "").strip() or DEFAULT_HERMES_MODEL

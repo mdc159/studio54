@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "topology": "manager-worker",
+  "company": {
+    "name": "Template Direct Hermes Manager Worker",
+    "description": "Manager/worker Paperclip company using direct per-company hermes_local.",
+    "budgetMonthlyCents": 0
+  },
+  "runtime": {
+    "adapterType": "hermes_local",
+    "homeScope": "company",
+    "model": "qwen/qwen3.6-plus"
+  },
+  "agents": {
+    "manager": {
+      "name": "Template Direct Hermes Manager",
+      "role": "general",
+      "title": "Manager"
+    },
+    "worker": {
+      "name": "Template Direct Hermes Worker",
+      "role": "general",
+      "title": "Worker"
+    }
+  },
+  "validation": {
+    "title": "Validate template manager worker direct hermes_local bootstrap",
+    "body": "Validate this manager/worker company bootstrap from a JSON template on the active direct hermes_local path.\n\nWorker agent:\n- name: {worker_name}\n- id: {worker_id}\n\nManager responsibilities:\n1. Create exactly one linked child issue for the worker task.\n2. To avoid a create-time assignment race, create the child issue first with parentId set to this parent, status \"backlog\", and no assignee.\n3. The child issue must be bounded and ask the worker to report this one requirement: both bootstrapped agents use adapterType hermes_local and the same company-scoped HERMES_HOME.\n4. After child creation succeeds, activate it with one PATCH that sets assigneeAgentId to the worker id above and status \"todo\".\n5. Do not create more than one child issue.\n6. Do not modify infrastructure.\n7. On the first run, after creating and activating the child issue, post at most one PENDING comment and stop. Do not keep polling or waiting inside the same run.\n8. Do not close this parent issue until the worker child issue is done.\n9. When woken after the worker child is done, post one concise final completion comment on this parent issue containing:\n   - the worker finding\n   - whether the child issue was linked to this parent\n   - whether the manager/worker lifecycle completed correctly\n10. Close this parent explicitly through one final PATCH containing status \"done\" and the completion comment.\n11. After the final PATCH succeeds, stop. Do not post additional comments or continue working.\n\nWorker task requirement:\n- post one concise final completion comment\n- close the worker issue explicitly through one final PATCH containing status \"done\" and the completion comment\n- do not create subtasks\n- do not modify infrastructure\n- after the final PATCH succeeds, stop",
+    "alwaysCreateIssue": false
+  }
+}
