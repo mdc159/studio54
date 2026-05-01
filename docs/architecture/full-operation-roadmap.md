@@ -16,7 +16,7 @@
 |---|---|---|---|
 | Donna / Studio54 | Hub ready | Architecture, planning, PRs, ledgers, grid checks, dispatch decisions | Needs packaged operating cadence and runbook |
 | Victoria | Enabled, validated remote SSH/tmux tab | Remote operations liaison, communications drafts, research, documentation, bounded tasks | Needs work-intake/sound-off routine before heavy production work |
-| Android / Termux | Visible, disabled `pending-mobile-edge` | Evidence source and future mobile edge | Mobile-Hermes PR #2 review/merge, then non-mutating discovery |
+| Android / Termux / Sam | Visible, disabled `pending-mobile-edge`; SSH readiness path validated | Mobile-edge evidence source and future mobile operator/scout | Must prove persistence, tmux/session policy, and disabled-tab guardrails before topology enablement |
 | Nikolai | Visible, disabled `pending` | Future workstation/GPU/build node | SSH/transport/runtime discovery contract |
 | Paperclip | Company/task surface | Durable issue/work assignment backbone | Needs clear handoff between Donna grid and Paperclip issues |
 | GitHub / Linear / AKE | Active ledger surfaces | Audit trail, plans, PR state, cross-agent evidence | Needs one canonical status rhythm |
@@ -147,32 +147,46 @@ next_action:
 - The result is captured in a PR, issue comment, or AKE note.
 - Donna can summarize the work without relying on raw tmux logs.
 
-## Phase 2 — Mobile-Hermes Phase A Discovery
+## Phase 2 — Sam / Mobile-Hermes Phase A Discovery
 
 **Objective:** Prepare Android/Termux for future operation without enabling it.
+Treat the validated SSH route as a readiness milestone, not as permission to make
+Sam a live grid worker.
 
-**Dependency:** Mobile-Hermes PR #2 should be reviewed and merged first.
+**Current evidence:** Mobile-Hermes Phase A artifacts are merged, and Donna can
+perform a bounded SSH readiness probe through the local phone alias. The phone is
+still a mobile-edge candidate: Python is available for probes, while `tmux`,
+boot/reboot persistence, attach wrappers, and long-running worker behavior must
+be proven separately.
 
 **Tasks:**
 
-1. Merge Mobile-Hermes PR #2 after review/authorization.
-2. Run `verify-grid-readiness.sh --dry-run` from `main`.
-3. Decide whether the final grid tab should be `Android`, `Termux`, or both.
-4. Confirm the intended transport contract without printing hostnames/IPs/key paths:
+1. Run `verify-grid-readiness.sh --dry-run` from `main` and compare it with the
+   live SSH probe evidence.
+2. Decide whether the final grid tab should be `Android`, `Termux`, `Sam`, or a
+   combination such as `Sam / Termux`.
+3. Confirm the intended transport contract without printing hostnames/IPs/key paths:
    - Tailscale SSH?
    - Termux SSH?
    - USB/ADB?
    - Moshi as human terminal only?
-5. Confirm whether the phone has a stable tmux/session wrapper policy.
-6. Document battery/Tailscale/Termux:Boot requirements.
-7. Keep Studio54 topology disabled.
+4. Confirm whether the phone has a stable tmux/session wrapper policy.
+5. Document battery/Tailscale/Termux:Boot requirements and whether `sshd`
+   survives reboot in practice.
+6. Capture the SSH auth lesson: `authorized_keys` must contain one clean public
+   key line, debug-mode `sshd -ddd` may exit after one attempt, and
+   `connection_refused` after debugging usually means restart normal daemon mode
+   before changing topology.
+7. Keep Studio54 topology disabled until an explicit enablement PR lands.
 
 **Acceptance criteria:**
 
 - Redacted readiness report exists.
-- No phone mutation occurred.
-- Studio54 still refuses Android/Termux attach.
-- Next action is clear: phone-side validation, wrapper install, or transport setup.
+- Donna's bounded SSH probe evidence is recorded without private keys, raw logs,
+  Tailnet IPs, or key paths.
+- Studio54 still refuses Android/Termux/Sam attach while disabled.
+- Next action is clear: persistence hardening, `tmux` install/alternative,
+  wrapper install, or one-candidate enablement PR.
 
 ## Phase 3 — Nikolai Discovery
 
@@ -309,8 +323,7 @@ Do not perform without explicit approval:
 
 ## Immediate Next Actions
 
-1. Open this roadmap as a Studio54 docs PR.
-2. Review and merge Mobile-Hermes PR #2 when Miguel approves.
-3. Create the Victoria communications-plan work item.
-4. Execute one bounded Victoria task and record the sound-off.
-5. Decide Android/Termux transport contract from evidence, not assumption.
+1. Keep this roadmap current as Sam/Victoria evidence lands.
+2. Create the Victoria communications-plan work item.
+3. Execute one bounded Victoria task and record the sound-off.
+4. Decide Sam / Android / Termux transport contract from evidence, not assumption.
