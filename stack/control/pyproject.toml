@@ -10,6 +10,7 @@ dev = ["pytest>=8.0"]
 
 [project.scripts]
 start-1215 = "control1215.cli:main"
+hermes-grid = "control1215.hermes_grid:main"
 
 [build-system]
 requires = ["setuptools>=68"]

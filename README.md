@@ -98,6 +98,8 @@ Start here:
   defines how Paperclip runs Hermes directly.
 - [Company Bootstrap](docs/architecture/company-bootstrap.md) explains the
   repeatable Paperclip company setup.
+- [Remote Persona Grid](docs/architecture/remote-persona-grid.md) defines the
+  Donna-controlled SSH/tmux grid for remote Hermes personas such as Victoria.
 - [VPS Install Runbook](deploy/vps/INSTALL.md) is the operator-oriented setup
   path.
 
