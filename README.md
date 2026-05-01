@@ -103,6 +103,9 @@ Start here:
 - [Full Operation Roadmap](docs/architecture/full-operation-roadmap.md) lays out
   the path from validated agents to real work with Donna, Victoria,
   Android/Termux, Nikolai, Paperclip, and the audit ledgers.
+- [Nikoli WSL Workstation Node Card](docs/architecture/nikoli-wsl-node-card.md)
+  records the validated Donna -> Tailscale SSH -> WSL tmux/Hermes pattern for
+  the first workstation persona.
 - [VPS Install Runbook](deploy/vps/INSTALL.md) is the operator-oriented setup
   path.
 
