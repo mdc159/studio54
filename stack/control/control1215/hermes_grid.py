@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shlex
 import shutil
 import subprocess
 import sys
@@ -169,10 +170,62 @@ def checks_exit_code(checks: Sequence[Check]) -> int:
     return 1 if any(check.status == "FAIL" for check in checks) else 0
 
 
+def _tabs(config: dict | None = None) -> list[dict]:
+    grid = config or load_grid_config()
+    return [tab for tab in grid.get("tabs", []) if isinstance(tab, dict)]
+
+
+def find_tab(name: str, config: dict | None = None) -> dict | None:
+    return next((tab for tab in _tabs(config) if tab.get("name") == name), None)
+
+
+def build_attach_command(name: str, config: dict | None = None) -> list[str]:
+    tab = find_tab(name, config)
+    if tab is None:
+        raise ValueError(f"unknown grid tab: {name}")
+    command = tab.get("command")
+    if not isinstance(command, str) or not command.strip():
+        raise ValueError(f"grid tab {name!r} has no attach command")
+    return shlex.split(command)
+
+
+def attach_tab(
+    name: str,
+    *,
+    dry_run: bool = False,
+    attach_runner: Callable[[Sequence[str]], int] = subprocess.call,
+) -> int:
+    tab = find_tab(name)
+    if tab is None:
+        print(f"FAIL attach: unknown tab {name!r}")
+        return 1
+    if not tab.get("enabled"):
+        print(f"FAIL attach: tab {name} is disabled; enable it in topology only after validation")
+        return 1
+    if tab.get("kind") != "remote-ssh-tmux":
+        print(f"FAIL attach: tab {name} uses unsupported kind {tab.get('kind')!r}")
+        return 1
+
+    command = build_attach_command(name)
+    command_display = shlex.join(command)
+    print("Runtime attach plan")
+    print(f"  tab={name}")
+    print(f"  kind={tab.get('kind')}")
+    print(f"  command={command_display}")
+    print("  safety=explicit operator attach; no prompt injection; no session creation")
+    if dry_run:
+        print("  mode=dry-run")
+        return 0
+    return int(attach_runner(command))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="hermes-grid")
+    parser.add_argument("command", nargs="?", choices=["attach"], help="Runtime command. Use 'attach' to open an explicit operator attach session.")
+    parser.add_argument("tab", nargs="?", help="Grid tab name for runtime commands, for example Victoria.")
     parser.add_argument("--check", action="store_true", help="Run read-only readiness checks and print the dry-run launch summary.")
     parser.add_argument("--probe-remote", action="store_true", help="Include a non-interactive SSH probe for Victoria. Off by default.")
+    parser.add_argument("--dry-run", action="store_true", help="For runtime commands, print the attach plan without executing it.")
     parser.add_argument("--json", action="store_true", dest="as_json", help="Print machine-readable check output.")
     return parser
 
@@ -181,9 +234,19 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
+    if args.command == "attach":
+        if args.as_json:
+            parser.error("--json is only supported with --check")
+        if not args.tab:
+            parser.error("attach requires a tab name, e.g. hermes-grid attach Victoria")
+        return attach_tab(args.tab, dry_run=args.dry_run)
+
     if not args.check:
-        parser.error("only --check is implemented in Phase 1.5")
+        parser.error("use --check for readiness or 'attach <tab>' for explicit runtime attach")
         return 2
+
+    if args.dry_run:
+        parser.error("--dry-run is only supported with runtime commands")
 
     checks = collect_checks(probe_remote=args.probe_remote)
     if args.as_json:

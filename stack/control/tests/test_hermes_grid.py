@@ -70,3 +70,55 @@ def test_remote_probe_can_run_non_interactive_check() -> None:
     remote_probe = next(check for check in checks if check.name == "remote_probe")
     assert remote_probe.status == "PASS"
     assert any("BatchMode=yes" in call for call in calls)
+
+
+def test_build_attach_command_uses_enabled_tab_command_from_topology() -> None:
+    command = hermes_grid.build_attach_command("Victoria")
+    assert command == ["ssh", "victoria", "-t", "victoria-attach"]
+
+
+def test_attach_refuses_disabled_tabs_without_running_command(capsys) -> None:
+    calls = []
+
+    def fake_attach_runner(*args, **kwargs):
+        calls.append(args)
+        return 0
+
+    exit_code = hermes_grid.attach_tab("Nikolai", attach_runner=fake_attach_runner)
+
+    out = capsys.readouterr().out
+    assert exit_code == 1
+    assert calls == []
+    assert "disabled" in out
+    assert "Nikolai" in out
+
+
+def test_attach_dry_run_prints_generic_runtime_plan_without_executing(capsys) -> None:
+    calls = []
+
+    def fake_attach_runner(*args, **kwargs):
+        calls.append(args)
+        return 0
+
+    exit_code = hermes_grid.attach_tab("Victoria", dry_run=True, attach_runner=fake_attach_runner)
+
+    out = capsys.readouterr().out
+    assert exit_code == 0
+    assert calls == []
+    assert "Runtime attach plan" in out
+    assert "tab=Victoria" in out
+    assert "ssh victoria -t victoria-attach" in out
+    assert "hostname=" not in out
+
+
+def test_attach_executes_enabled_tab_command_only_when_explicit() -> None:
+    calls = []
+
+    def fake_attach_runner(args):
+        calls.append(args)
+        return 0
+
+    exit_code = hermes_grid.attach_tab("Victoria", attach_runner=fake_attach_runner)
+
+    assert exit_code == 0
+    assert calls == [["ssh", "victoria", "-t", "victoria-attach"]]
