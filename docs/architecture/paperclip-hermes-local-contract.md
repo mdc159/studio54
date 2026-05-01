@@ -1,5 +1,7 @@
 # Paperclip hermes_local Contract
 
+Canonical architecture entrypoint: [canonical/README.md](canonical/README.md).
+
 This document captures the proven `hermes_local` runtime contract from
 `srv1264451`.
 

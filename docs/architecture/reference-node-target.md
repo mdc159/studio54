@@ -1,5 +1,7 @@
 # Reference Node Target
 
+Canonical architecture entrypoint: [canonical/README.md](canonical/README.md).
+
 This is the current contract for a correct private-first Studio54 node. It is
 based on the proven fresh-node behavior on `srv1264451` and the committed repo
 state.

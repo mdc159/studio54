@@ -1,5 +1,7 @@
 # Company Bootstrap
 
+Canonical architecture entrypoint: [canonical/README.md](canonical/README.md).
+
 This document defines the minimal company bootstrap path for the active direct
 `hermes_local` Paperclip architecture.
 
