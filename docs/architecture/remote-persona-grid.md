@@ -14,9 +14,11 @@ Victoria through bounded SSH/tmux control, and Studio54 now owns a read-only
 - `./bin/hermes-grid --check` exists as a read-only readiness mode.
 - `./bin/hermes-grid --check --probe-remote` exists as an explicit, bounded
   remote probe.
-- Runtime launch/attach mode is not implemented yet.
+- `./bin/hermes-grid attach <tab>` exists as explicit operator runtime attach mode.
+- `./bin/hermes-grid attach Victoria --dry-run` prints the runtime attach plan
+  without executing it.
 - `Nikolai`, `WSL`, and `Termux` remain disabled/pending until the
-  Victoria-only check path is merged and stable.
+  Victoria-only runtime attach path is proven boring and repeatable.
 
 ## Architectural Position
 
@@ -46,8 +48,8 @@ The grid is not:
 |---|---|
 | `docs/architecture/remote-persona-grid.md` | Canonical architecture and rollout contract. |
 | `stack/topology/hermes-grid.json` | Executable persona/tab topology manifest. |
-| `./bin/hermes-grid` | Repo-root CLI shim for grid readiness checks. |
-| `stack/control/control1215/hermes_grid.py` | Read-only check implementation. |
+| `./bin/hermes-grid` | Repo-root CLI shim for grid readiness checks and explicit operator attach. |
+| `stack/control/control1215/hermes_grid.py` | Check, probe, and generic topology-driven attach implementation. |
 | Agent Knowledge Exchange Victoria doc | Victoria-specific validation evidence and handoff history. |
 | Linear / GitHub issues and PRs | Durable audit trail for rollout decisions. |
 
@@ -259,8 +261,33 @@ Explicit, bounded remote verification:
 
 ### Runtime Attach Mode
 
-Future behavior that may actually open or attach panes. It is not implemented
-in the current check-mode PR and requires explicit approval.
+Explicit operator attach to an enabled tab:
+
+```bash
+./bin/hermes-grid attach Victoria
+```
+
+Dry-run form:
+
+```bash
+./bin/hermes-grid attach Victoria --dry-run
+```
+
+Runtime attach is generic: the CLI resolves the requested tab from
+`stack/topology/hermes-grid.json` and executes that tab's configured command. The
+code should not hardcode Victoria-specific host details beyond the first enabled
+topology entry used to prove the pattern.
+
+Current guardrails:
+
+- attach requires an explicit tab name;
+- disabled tabs are refused without running a command;
+- unsupported tab kinds are refused;
+- dry-run prints the plan without executing it;
+- attach does not send prompts, create sessions, install packages, modify
+  firewall rules, or copy runtime state;
+- output uses stable tab/command labels and continues to avoid resolved
+  hostnames, IPs, private key paths, tokens, and raw pane captures.
 
 ## Readiness Contract
 
@@ -347,6 +374,14 @@ sequenceDiagram
         SSH->>Tmux: verify wrapper and session
         Tmux-->>Grid: session exists
         Grid-->>Donna: PASS remote_probe
+    end
+
+    opt Explicit runtime attach
+        Donna->>Grid: ./bin/hermes-grid attach Victoria
+        Grid->>Grid: resolve enabled tab from topology
+        Grid->>SSH: execute configured attach command
+        SSH->>Tmux: attach to existing persona session/window
+        Tmux-->>Donna: operator terminal attached
     end
 
     opt Bounded direct control
