@@ -69,6 +69,11 @@ The merge gate is broader than the initial Langfuse unit slice. It should run:
 - live direct `hermes_local` one-agent and manager-worker smoke runs when
   Paperclip, Hermes, Langfuse, and model credentials are available
 
+The Donna-executable confidence gate is documented in
+[Donna Langfuse Confidence Gate](langfuse-donna-confidence-gate.md). That
+document is the operational checklist for PR #5 validation on the VPS and the
+template for the matching Linear project/issues.
+
 Any live or external test that cannot run must be recorded as a
 missing-prerequisite skip, not silently treated as a pass. Any deterministic
 local failure should block the merge until it is understood and fixed.
