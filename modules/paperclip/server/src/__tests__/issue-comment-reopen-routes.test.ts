@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockIssueService = vi.hoisted(() => ({
   getById: vi.fn(),
+  list: vi.fn(),
   assertCheckoutOwner: vi.fn(),
   update: vi.fn(),
   addComment: vi.fn(),
@@ -170,6 +171,7 @@ describe("issue comment reopen routes", () => {
     registerModuleMocks();
     vi.resetAllMocks();
     mockIssueService.getById.mockReset();
+    mockIssueService.list.mockReset();
     mockIssueService.assertCheckoutOwner.mockReset();
     mockIssueService.update.mockReset();
     mockIssueService.addComment.mockReset();
@@ -229,6 +231,7 @@ describe("issue comment reopen routes", () => {
       authorUserId: "local-board",
     });
     mockIssueService.findMentionedAgents.mockResolvedValue([]);
+    mockIssueService.list.mockResolvedValue([]);
     mockIssueService.listWakeableBlockedDependents.mockResolvedValue([]);
     mockIssueService.getWakeableParentAfterChildCompletion.mockResolvedValue(null);
     mockIssueService.assertCheckoutOwner.mockResolvedValue({ adoptedFromRunId: null });
@@ -411,6 +414,267 @@ describe("issue comment reopen routes", () => {
         reason: "issue_reopened_via_comment",
         payload: expect.objectContaining({
           reopenedFrom: "done",
+        }),
+      }),
+    );
+  });
+
+  it("does not implicitly reopen closed issues from non-assignee agent comments", async () => {
+    const runId = "33333333-3333-4333-8333-333333333333";
+    mockIssueService.getById.mockResolvedValue(makeIssue("done"));
+    mockHeartbeatService.getRun.mockResolvedValue({
+      id: runId,
+      companyId: "company-1",
+      agentId: "44444444-4444-4444-8444-444444444444",
+    });
+
+    const res = await request(
+      await installActor(createApp(), {
+        type: "board",
+        userId: "local-board",
+        companyIds: ["company-1"],
+        source: "local_implicit",
+        isInstanceAdmin: true,
+        runId,
+      }),
+    )
+      .post("/api/issues/11111111-1111-4111-8111-111111111111/comments")
+      .send({ body: "child result copied to parent" });
+
+    expect(res.status).toBe(201);
+    expect(mockIssueService.update).not.toHaveBeenCalled();
+    expect(mockHeartbeatService.wakeup).not.toHaveBeenCalled();
+  });
+
+  it("attributes run-scoped local comments to the run agent and does not self-wake", async () => {
+    const runId = "33333333-3333-4333-8333-333333333333";
+    const assigneeAgentId = "22222222-2222-4222-8222-222222222222";
+    mockIssueService.getById.mockResolvedValue(makeIssue("done"));
+    mockHeartbeatService.getRun.mockResolvedValue({
+      id: runId,
+      companyId: "company-1",
+      agentId: assigneeAgentId,
+    });
+
+    const res = await request(
+      await installActor(createApp(), {
+        type: "board",
+        userId: "local-board",
+        companyIds: ["company-1"],
+        source: "local_implicit",
+        isInstanceAdmin: true,
+        runId,
+      }),
+    )
+      .post("/api/issues/11111111-1111-4111-8111-111111111111/comments")
+      .send({ body: "DONE: useful synthesis" });
+
+    expect(res.status).toBe(201);
+    expect(mockIssueService.update).not.toHaveBeenCalled();
+    expect(mockIssueService.addComment).toHaveBeenCalledWith(
+      "11111111-1111-4111-8111-111111111111",
+      "DONE: useful synthesis",
+      {
+        agentId: assigneeAgentId,
+        userId: undefined,
+        runId,
+      },
+    );
+    expect(mockHeartbeatService.wakeup).not.toHaveBeenCalled();
+  });
+
+  it("attributes run-scoped PATCH completion comments to the run agent and does not self-wake", async () => {
+    const runId = "33333333-3333-4333-8333-333333333333";
+    const assigneeAgentId = "22222222-2222-4222-8222-222222222222";
+    mockIssueService.getById.mockResolvedValue(makeIssue("todo"));
+    mockIssueService.update.mockImplementation(async (_id: string, patch: Record<string, unknown>) => ({
+      ...makeIssue("todo"),
+      ...patch,
+    }));
+    mockHeartbeatService.getRun.mockResolvedValue({
+      id: runId,
+      companyId: "company-1",
+      agentId: assigneeAgentId,
+    });
+
+    const res = await request(
+      await installActor(createApp(), {
+        type: "board",
+        userId: "local-board",
+        companyIds: ["company-1"],
+        source: "local_implicit",
+        isInstanceAdmin: true,
+        runId,
+      }),
+    )
+      .patch("/api/issues/11111111-1111-4111-8111-111111111111")
+      .send({ status: "done", comment: "DONE: useful synthesis" });
+
+    expect(res.status).toBe(200);
+    expect(mockIssueService.addComment).toHaveBeenCalledWith(
+      "11111111-1111-4111-8111-111111111111",
+      "DONE: useful synthesis",
+      {
+        agentId: assigneeAgentId,
+        userId: undefined,
+        runId,
+      },
+    );
+    expect(mockHeartbeatService.wakeup).not.toHaveBeenCalled();
+  });
+
+  it("does not wake a parent assignee for non-assignee agent comments on parent issues", async () => {
+    const runId = "33333333-3333-4333-8333-333333333333";
+    const workerAgentId = "44444444-4444-4444-8444-444444444444";
+    mockIssueService.getById.mockResolvedValue(makeIssue("todo"));
+    mockIssueService.list.mockResolvedValue([
+      {
+        ...makeIssue("done"),
+        id: "55555555-5555-4555-8555-555555555555",
+        parentId: "11111111-1111-4111-8111-111111111111",
+      },
+    ]);
+    mockHeartbeatService.getRun.mockResolvedValue({
+      id: runId,
+      companyId: "company-1",
+      agentId: workerAgentId,
+    });
+
+    const res = await request(
+      await installActor(createApp(), {
+        type: "board",
+        userId: "local-board",
+        companyIds: ["company-1"],
+        source: "local_implicit",
+        isInstanceAdmin: true,
+        runId,
+      }),
+    )
+      .post("/api/issues/11111111-1111-4111-8111-111111111111/comments")
+      .send({ body: "Worker copied a child result to the parent issue" });
+
+    expect(res.status).toBe(201);
+    expect(mockIssueService.addComment).toHaveBeenCalledWith(
+      "11111111-1111-4111-8111-111111111111",
+      "Worker copied a child result to the parent issue",
+      {
+        agentId: workerAgentId,
+        userId: undefined,
+        runId,
+      },
+    );
+    expect(mockHeartbeatService.wakeup).not.toHaveBeenCalled();
+  });
+
+  it("does not wake a parent issue for run-scoped runtime diagnostic comments on a child", async () => {
+    const runId = "33333333-3333-4333-8333-333333333333";
+    const workerAgentId = "22222222-2222-4222-8222-222222222222";
+    mockIssueService.getById.mockResolvedValue({
+      ...makeIssue("todo"),
+      parentId: "99999999-9999-4999-8999-999999999999",
+    });
+    mockHeartbeatService.getRun.mockResolvedValue({
+      id: runId,
+      companyId: "company-1",
+      agentId: workerAgentId,
+    });
+
+    const res = await request(
+      await installActor(createApp(), {
+        type: "board",
+        userId: "local-board",
+        companyIds: ["company-1"],
+        source: "local_implicit",
+        isInstanceAdmin: true,
+        runId,
+      }),
+    )
+      .post("/api/issues/11111111-1111-4111-8111-111111111111/comments")
+      .send({
+        body: "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary.",
+      });
+
+    expect(res.status).toBe(201);
+    expect(mockIssueService.addComment).toHaveBeenCalledWith(
+      "11111111-1111-4111-8111-111111111111",
+      "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary.",
+      {
+        agentId: workerAgentId,
+        userId: undefined,
+        runId,
+      },
+    );
+    expect(mockIssueService.getWakeableParentAfterChildCompletion).not.toHaveBeenCalled();
+    expect(mockHeartbeatService.wakeup).not.toHaveBeenCalled();
+  });
+
+  it("wakes a parent when a child reaches done", async () => {
+    const child = {
+      ...makeIssue("todo"),
+      parentId: "99999999-9999-4999-8999-999999999999",
+    };
+    mockIssueService.getById.mockResolvedValue(child);
+    mockIssueService.update.mockImplementation(async (_id: string, patch: Record<string, unknown>) => ({
+      ...child,
+      ...patch,
+    }));
+    mockIssueService.getWakeableParentAfterChildCompletion.mockResolvedValue({
+      id: "99999999-9999-4999-8999-999999999999",
+      assigneeAgentId: "44444444-4444-4444-8444-444444444444",
+      childIssueIds: ["11111111-1111-4111-8111-111111111111"],
+    });
+
+    const res = await request(await installActor(createApp()))
+      .patch("/api/issues/11111111-1111-4111-8111-111111111111")
+      .send({ status: "done", comment: "DONE: child complete" });
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(res.status).toBe(200);
+    expect(mockHeartbeatService.wakeup).toHaveBeenCalledWith(
+      "44444444-4444-4444-8444-444444444444",
+      expect.objectContaining({
+        reason: "issue_children_completed",
+        payload: expect.objectContaining({
+          issueId: "99999999-9999-4999-8999-999999999999",
+          completedChildIssueId: "11111111-1111-4111-8111-111111111111",
+        }),
+      }),
+    );
+  });
+
+  it("wakes a parent when a child reaches blocked", async () => {
+    const child = {
+      ...makeIssue("todo"),
+      parentId: "99999999-9999-4999-8999-999999999999",
+    };
+    const parent = {
+      ...makeIssue("todo"),
+      id: "99999999-9999-4999-8999-999999999999",
+      assigneeAgentId: "44444444-4444-4444-8444-444444444444",
+    };
+    mockIssueService.getById
+      .mockResolvedValueOnce(child)
+      .mockResolvedValueOnce(parent);
+    mockIssueService.update.mockImplementation(async (_id: string, patch: Record<string, unknown>) => ({
+      ...child,
+      ...patch,
+    }));
+
+    const res = await request(await installActor(createApp()))
+      .patch("/api/issues/11111111-1111-4111-8111-111111111111")
+      .send({ status: "blocked", comment: "BLOCKED: waiting on operator input" });
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(res.status).toBe(200);
+    expect(mockHeartbeatService.wakeup).toHaveBeenCalledWith(
+      "44444444-4444-4444-8444-444444444444",
+      expect.objectContaining({
+        reason: "issue_child_blocked",
+        payload: expect.objectContaining({
+          issueId: "99999999-9999-4999-8999-999999999999",
+          blockedChildIssueId: "11111111-1111-4111-8111-111111111111",
         }),
       }),
     );

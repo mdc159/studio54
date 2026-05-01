@@ -1,5 +1,9 @@
 # Paperclip hermes_local Contract
 
+Canonical set entrypoint:
+[canonical/README.md](canonical/README.md)
+
+
 This document captures the proven `hermes_local` runtime contract from
 `srv1264451`.
 
@@ -366,3 +370,4 @@ environment was not prepared.
 - Whether a future host-side wrapper/gateway should replace the in-container CLI
   model for stricter separation. This is optional/future-state and is not the
   active Paperclip execution contract.
+

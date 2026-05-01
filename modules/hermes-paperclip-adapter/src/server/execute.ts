@@ -96,12 +96,17 @@ Title: {{taskTitle}}
 ## Workflow
 
 1. Work on the task using your tools
-2. When done, mark the issue as completed:
-   \`curl -s -X PATCH -H "Authorization: Bearer $PAPERCLIP_API_KEY" "{{paperclipApiUrl}}/issues/{{taskId}}" -H "Content-Type: application/json" -d '{"status":"done"}'\`
-3. Post a completion comment on the issue summarizing what you did:
-   \`curl -s -X POST -H "Authorization: Bearer $PAPERCLIP_API_KEY" "{{paperclipApiUrl}}/issues/{{taskId}}/comments" -H "Content-Type: application/json" -d '{"body":"DONE: <your summary here>"}'\`
-4. If this issue has a parent (check the issue body or comments for references like TRA-XX), post a brief notification on the parent issue so the parent owner knows:
-   \`curl -s -X POST -H "Authorization: Bearer $PAPERCLIP_API_KEY" "{{paperclipApiUrl}}/issues/PARENT_ISSUE_ID/comments" -H "Content-Type: application/json" -d '{"body":"{{agentName}} completed {{taskId}}. Summary: <brief>"}'\`
+2. Before marking this issue done, check for direct child issues:
+   \`curl -s -H "Authorization: Bearer $PAPERCLIP_API_KEY" "{{paperclipApiUrl}}/companies/{{companyId}}/issues?parentId={{taskId}}" | python3 -m json.tool\`
+3. If any direct child issue is not \`done\` or \`cancelled\`, do not close this parent yet. Post one pending comment and stop; Paperclip will wake the parent when all direct children are terminal:
+   \`curl -s -X POST -H "Authorization: Bearer $PAPERCLIP_API_KEY" -H "X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID" "{{paperclipApiUrl}}/issues/{{taskId}}/comments" -H "Content-Type: application/json" -d '{"body":"PENDING: Waiting for child issue(s) to complete before closing this parent."}'\`
+4. When done and no direct child issues are still open, mark the issue completed and post the final summary in the same request:
+   \`curl -s -X PATCH -H "Authorization: Bearer $PAPERCLIP_API_KEY" -H "X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID" "{{paperclipApiUrl}}/issues/{{taskId}}" -H "Content-Type: application/json" -d '{"status":"done","comment":"DONE: <your summary here>"}'\`
+5. Do not post a separate completion comment after that PATCH succeeds.
+6. If you delegate a worker task for this issue, create it as a child by setting \`"parentId":"{{taskId}}"\`:
+   \`curl -s -X POST -H "Authorization: Bearer $PAPERCLIP_API_KEY" -H "X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID" "{{paperclipApiUrl}}/companies/{{companyId}}/issues" -H "Content-Type: application/json" -d '{"title":"<worker task title>","description":"<bounded worker task>","assigneeAgentId":"<worker-agent-id>","parentId":"{{taskId}}","status":"todo","priority":"medium"}'\`
+7. If this issue has a parent (check \`parentId\` in the issue details), post a brief notification on the parent issue so the parent owner knows:
+   \`curl -s -X POST -H "Authorization: Bearer $PAPERCLIP_API_KEY" -H "X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID" "{{paperclipApiUrl}}/issues/PARENT_ISSUE_ID/comments" -H "Content-Type: application/json" -d '{"body":"{{agentName}} completed {{taskId}}. Summary: <brief>"}'\`
 {{/taskId}}
 
 {{#commentId}}
@@ -127,7 +132,7 @@ Address the comment, POST a reply if needed, then continue working.
 3. If no issues assigned to you, check for unassigned issues:
    \`curl -s -H "Authorization: Bearer $PAPERCLIP_API_KEY" "{{paperclipApiUrl}}/companies/{{companyId}}/issues?status=backlog" | python3 -c "import sys,json;issues=json.loads(sys.stdin.read());[print(f'{i[\"identifier\"]} {i[\"title\"]}') for i in issues if not i.get('assigneeAgentId')]" \`
    If you find a relevant issue, assign it to yourself:
-   \`curl -s -X PATCH -H "Authorization: Bearer $PAPERCLIP_API_KEY" "{{paperclipApiUrl}}/issues/ISSUE_ID" -H "Content-Type: application/json" -d '{"assigneeAgentId":"{{agentId}}","status":"todo"}'\`
+   \`curl -s -X PATCH -H "Authorization: Bearer $PAPERCLIP_API_KEY" -H "X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID" "{{paperclipApiUrl}}/issues/ISSUE_ID" -H "Content-Type: application/json" -d '{"assigneeAgentId":"{{agentId}}","status":"todo"}'\`
 
 4. If truly nothing to do, report briefly what you checked.
 {{/noTask}}`;
@@ -226,21 +231,60 @@ interface ParsedOutput {
 // Response cleaning
 // ---------------------------------------------------------------------------
 
+function isRuntimeDiagnosticLine(line: string): boolean {
+  return (
+    /^⚠\s*No auxiliary LLM provider configured/i.test(line) ||
+    /^⚠\s*.*context compression/i.test(line) ||
+    /^No auxiliary LLM provider configured/i.test(line) ||
+    /^Run `hermes setup` or set [A-Z0-9_]+/i.test(line) ||
+    /^↻\s*Resumed session\b/i.test(line) ||
+    /^Resumed session\s+\d{8}_\d{6}_[a-z0-9_-]+/i.test(line)
+  );
+}
+
 /** Strip noise lines from a Hermes response (tool output, system messages, etc.) */
-function cleanResponse(raw: string): string {
-  return raw
-    .split("\n")
-    .filter((line) => {
-      const t = line.trim();
-      if (!t) return true; // keep blank lines for paragraph separation
-      if (t.startsWith("[tool]") || t.startsWith("[hermes]") || t.startsWith("[paperclip]")) return false;
-      if (t.startsWith("session_id:")) return false;
-      if (/^\[\d{4}-\d{2}-\d{2}T/.test(t)) return false;
-      if (/^\[done\]\s*┊/.test(t)) return false;
-      if (/^┊\s*[\p{Emoji_Presentation}]/u.test(t) && !/^┊\s*💬/.test(t)) return false;
-      if (/^\p{Emoji_Presentation}\s*(Completed|Running|Error)?\s*$/u.test(t)) return false;
-      return true;
-    })
+export function cleanResponse(raw: string): string {
+  let skippingCommandApproval = false;
+  let skippingReviewDiff = false;
+
+  const lines = raw.split("\n").filter((line) => {
+    const t = line.trim();
+    if (!t) {
+      skippingReviewDiff = false;
+      return true; // keep blank lines for paragraph separation
+    }
+    if (skippingCommandApproval) {
+      if (/Choice \[o\/s\/D\]:.*Denied/i.test(t) || /✗\s*Denied/i.test(t)) {
+        skippingCommandApproval = false;
+      }
+      return false;
+    }
+    if (/DANGEROUS COMMAND: Security scan/i.test(t) || /Downloaded content will be executed/i.test(t)) {
+      skippingCommandApproval = true;
+      return false;
+    }
+    if (/^\[o\]nce\s*\|\s*\[s\]ession\s*\|\s*\[d\]eny/i.test(t) || /^Choice \[o\/s\/D\]/i.test(t)) return false;
+    if (skippingReviewDiff) {
+      if (/^(diff --git|index |--- |\+\+\+ |@@\s)/.test(t)) return false;
+      if (/^[ab]\/\//.test(t)) return false;
+      if (/^[+-]/.test(t)) return false;
+      skippingReviewDiff = false;
+    }
+    if (/^┊\s*review diff/i.test(t)) {
+      skippingReviewDiff = true;
+      return false;
+    }
+    if (t.startsWith("[tool]") || t.startsWith("[hermes]") || t.startsWith("[paperclip]")) return false;
+    if (t.startsWith("session_id:")) return false;
+    if (/^\[\d{4}-\d{2}-\d{2}T/.test(t)) return false;
+    if (/^\[done\]\s*┊/.test(t)) return false;
+    if (isRuntimeDiagnosticLine(t)) return false;
+    if (/^┊\s*[\p{Emoji_Presentation}]/u.test(t) && !/^┊\s*💬/.test(t)) return false;
+    if (/^\p{Emoji_Presentation}\s*(Completed|Running|Error)?\s*$/u.test(t)) return false;
+    return true;
+  });
+
+  return lines
     .map((line) => {
       let t = line.replace(/^[\s]*┊\s*💬\s*/, "").trim();
       t = t.replace(/^\[done\]\s*/, "").trim();

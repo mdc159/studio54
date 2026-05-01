@@ -159,6 +159,7 @@ function shouldImplicitlyReopenCommentForAgent(input: {
   if (!isClosedIssueStatus(input.issueStatus)) return false;
   if (typeof input.assigneeAgentId !== "string" || input.assigneeAgentId.length === 0) return false;
   if (input.actorType === "agent" && input.actorId === input.assigneeAgentId) return false;
+  if (input.actorType === "agent") return false;
   return true;
 }
 
@@ -510,6 +511,11 @@ export function issueRoutes(
     if (activeRunStartedAtMs === null || commentCreatedAtMs === null) return false;
     if (params.comment.authorAgentId && params.comment.authorAgentId === params.activeRun.agentId) return false;
     return commentCreatedAtMs >= activeRunStartedAtMs;
+  }
+
+  async function issueHasChildren(issue: { id: string; companyId: string }) {
+    const children = await svc.list(issue.companyId, { parentId: issue.id });
+    return children.length > 0;
   }
   async function getClosedIssueExecutionWorkspace(issue: { executionWorkspaceId?: string | null }) {
     if (!issue.executionWorkspaceId) return null;
@@ -1335,11 +1341,40 @@ export function issueRoutes(
     }
 
     const actor = getActorInfo(req);
+    const actorRun = actor.runId ? await heartbeat.getRun(actor.runId).catch(() => null) : null;
+    const runScopedAgentId =
+      actorRun && actorRun.companyId === companyId && typeof actorRun.agentId === "string"
+        ? actorRun.agentId
+        : null;
+    const creatorAgentId = actor.agentId ?? runScopedAgentId;
+    const runContext =
+      actorRun?.contextSnapshot && typeof actorRun.contextSnapshot === "object"
+        ? (actorRun.contextSnapshot as Record<string, unknown>)
+        : null;
+    const runTaskId = typeof runContext?.taskId === "string" ? runContext.taskId.trim() : "";
+    let issueInput = req.body;
+    const isDelegatedAgentChild =
+      creatorAgentId &&
+      actorRun?.companyId === companyId &&
+      typeof req.body.assigneeAgentId === "string" &&
+      req.body.assigneeAgentId !== creatorAgentId &&
+      (!!req.body.parentId || !!runTaskId);
+    if (isDelegatedAgentChild) {
+      if (!req.body.parentId && runTaskId) {
+        const parent = await svc.getById(runTaskId);
+        if (parent?.companyId === companyId) {
+          issueInput = { ...issueInput, parentId: parent.id };
+        }
+      }
+      if (issueInput.parentId && (!req.body.status || req.body.status === "backlog")) {
+        issueInput = { ...issueInput, status: "todo" };
+      }
+    }
     const executionPolicy = normalizeIssueExecutionPolicy(req.body.executionPolicy);
     const issue = await svc.create(companyId, {
-      ...req.body,
+      ...issueInput,
       executionPolicy,
-      createdByAgentId: actor.agentId,
+      createdByAgentId: creatorAgentId,
       createdByUserId: actor.actorType === "user" ? actor.actorId : null,
     });
 
@@ -1384,6 +1419,14 @@ export function issueRoutes(
     if (!(await assertAgentRunCheckoutOwnership(req, res, existing))) return;
 
     const actor = getActorInfo(req);
+    const actorRun = actor.runId ? await heartbeat.getRun(actor.runId).catch(() => null) : null;
+    const runScopedAgentId =
+      actorRun && actorRun.companyId === existing.companyId && typeof actorRun.agentId === "string"
+        ? actorRun.agentId
+        : null;
+    const commentAgentId = actor.agentId ?? runScopedAgentId;
+    const commentActorType = commentAgentId ? "agent" : actor.actorType;
+    const commentActorId = commentAgentId ?? actor.actorId;
     const isClosed = isClosedIssueStatus(existing.status);
     const normalizedAssigneeAgentId = await normalizeIssueAssigneeAgentReference(
       existing.companyId,
@@ -1408,8 +1451,8 @@ export function issueRoutes(
         shouldImplicitlyReopenCommentForAgent({
           issueStatus: existing.status,
           assigneeAgentId: requestedAssigneeAgentId,
-          actorType: actor.actorType,
-          actorId: actor.actorId,
+          actorType: commentActorType,
+          actorId: commentActorId,
         }));
     let interruptedRunId: string | null = null;
     const closedExecutionWorkspace = await getClosedIssueExecutionWorkspace(existing);
@@ -1730,16 +1773,16 @@ export function issueRoutes(
     let comment = null;
     if (commentBody) {
       comment = await svc.addComment(id, commentBody, {
-        agentId: actor.agentId ?? undefined,
-        userId: actor.actorType === "user" ? actor.actorId : undefined,
+        agentId: commentAgentId ?? undefined,
+        userId: commentAgentId ? undefined : actor.actorType === "user" ? actor.actorId : undefined,
         runId: actor.runId,
       });
 
       await logActivity(db, {
         companyId: issue.companyId,
-        actorType: actor.actorType,
-        actorId: actor.actorId,
-        agentId: actor.agentId,
+        actorType: commentActorType,
+        actorId: commentActorId,
+        agentId: commentAgentId,
         runId: actor.runId,
         action: "issue.comment_added",
         entityType: "issue",
@@ -1841,9 +1884,10 @@ export function issueRoutes(
 
       if (commentBody && comment) {
         const assigneeId = issue.assigneeAgentId;
-        const actorIsAgent = actor.actorType === "agent";
-        const selfComment = actorIsAgent && actor.actorId === assigneeId;
-        const skipAssigneeCommentWake = selfComment || isClosed;
+        const actorIsAgent = commentActorType === "agent";
+        const selfComment = actorIsAgent && commentActorId === assigneeId;
+        const agentCommentOnParent = actorIsAgent && !selfComment && (await issueHasChildren(issue));
+        const skipAssigneeCommentWake = selfComment || isClosed || agentCommentOnParent;
 
         if (assigneeId && !assigneeChanged && (reopened || !skipAssigneeCommentWake)) {
           addWakeup(assigneeId, {
@@ -1950,6 +1994,31 @@ export function issueRoutes(
               source: "issue.children_completed",
               completedChildIssueId: issue.id,
               childIssueIds: parent.childIssueIds,
+            },
+          });
+        }
+      }
+
+      const becameBlocked = existing.status !== "blocked" && issue.status === "blocked";
+      if (becameBlocked && issue.parentId) {
+        const parent = await svc.getById(issue.parentId);
+        if (parent?.assigneeAgentId && !["backlog", "done", "cancelled"].includes(parent.status)) {
+          addWakeup(parent.assigneeAgentId, {
+            source: "automation",
+            triggerDetail: "system",
+            reason: "issue_child_blocked",
+            payload: {
+              issueId: parent.id,
+              blockedChildIssueId: issue.id,
+            },
+            requestedByActorType: actor.actorType,
+            requestedByActorId: actor.actorId,
+            contextSnapshot: {
+              issueId: parent.id,
+              taskId: parent.id,
+              wakeReason: "issue_child_blocked",
+              source: "issue.child_blocked",
+              blockedChildIssueId: issue.id,
             },
           });
         }
@@ -2328,6 +2397,14 @@ export function issueRoutes(
     }
 
     const actor = getActorInfo(req);
+    const actorRun = actor.runId ? await heartbeat.getRun(actor.runId).catch(() => null) : null;
+    const runScopedAgentId =
+      actorRun && actorRun.companyId === issue.companyId && typeof actorRun.agentId === "string"
+        ? actorRun.agentId
+        : null;
+    const commentAgentId = actor.agentId ?? runScopedAgentId;
+    const commentActorType = commentAgentId ? "agent" : actor.actorType;
+    const commentActorId = commentAgentId ?? actor.actorId;
     const reopenRequested = req.body.reopen === true;
     const interruptRequested = req.body.interrupt === true;
     const isClosed = isClosedIssueStatus(issue.status);
@@ -2336,8 +2413,8 @@ export function issueRoutes(
       shouldImplicitlyReopenCommentForAgent({
         issueStatus: issue.status,
         assigneeAgentId: issue.assigneeAgentId,
-        actorType: actor.actorType,
-        actorId: actor.actorId,
+        actorType: commentActorType,
+        actorId: commentActorId,
       });
     let reopened = false;
     let reopenFromStatus: string | null = null;
@@ -2356,9 +2433,9 @@ export function issueRoutes(
 
       await logActivity(db, {
         companyId: currentIssue.companyId,
-        actorType: actor.actorType,
-        actorId: actor.actorId,
-        agentId: actor.agentId,
+        actorType: commentActorType,
+        actorId: commentActorId,
+        agentId: commentAgentId,
         runId: actor.runId,
         action: "issue.updated",
         entityType: "issue",
@@ -2400,8 +2477,8 @@ export function issueRoutes(
     }
 
     const comment = await svc.addComment(id, req.body.body, {
-      agentId: actor.agentId ?? undefined,
-      userId: actor.actorType === "user" ? actor.actorId : undefined,
+      agentId: commentAgentId ?? undefined,
+      userId: commentAgentId ? undefined : actor.actorType === "user" ? actor.actorId : undefined,
       runId: actor.runId,
     });
 
@@ -2412,9 +2489,9 @@ export function issueRoutes(
 
     await logActivity(db, {
       companyId: currentIssue.companyId,
-      actorType: actor.actorType,
-      actorId: actor.actorId,
-      agentId: actor.agentId,
+      actorType: commentActorType,
+      actorId: commentActorId,
+      agentId: commentAgentId,
       runId: actor.runId,
       action: "issue.comment_added",
       entityType: "issue",
@@ -2433,9 +2510,10 @@ export function issueRoutes(
     void (async () => {
       const wakeups = new Map<string, Parameters<typeof heartbeat.wakeup>[1]>();
       const assigneeId = currentIssue.assigneeAgentId;
-      const actorIsAgent = actor.actorType === "agent";
-      const selfComment = actorIsAgent && actor.actorId === assigneeId;
-      const skipWake = selfComment || isClosed;
+      const actorIsAgent = commentActorType === "agent";
+      const selfComment = actorIsAgent && commentActorId === assigneeId;
+      const agentCommentOnParent = actorIsAgent && !selfComment && (await issueHasChildren(currentIssue));
+      const skipWake = selfComment || isClosed || agentCommentOnParent;
       if (assigneeId && (reopened || !skipWake)) {
         if (reopened) {
           wakeups.set(assigneeId, {
@@ -2449,8 +2527,8 @@ export function issueRoutes(
               mutation: "comment",
               ...(interruptedRunId ? { interruptedRunId } : {}),
             },
-            requestedByActorType: actor.actorType,
-            requestedByActorId: actor.actorId,
+            requestedByActorType: commentActorType,
+            requestedByActorId: commentActorId,
             contextSnapshot: {
               issueId: currentIssue.id,
               taskId: currentIssue.id,
@@ -2473,8 +2551,8 @@ export function issueRoutes(
               mutation: "comment",
               ...(interruptedRunId ? { interruptedRunId } : {}),
             },
-            requestedByActorType: actor.actorType,
-            requestedByActorId: actor.actorId,
+            requestedByActorType: commentActorType,
+            requestedByActorId: commentActorId,
             contextSnapshot: {
               issueId: currentIssue.id,
               taskId: currentIssue.id,
@@ -2497,14 +2575,14 @@ export function issueRoutes(
 
       for (const mentionedId of mentionedIds) {
         if (wakeups.has(mentionedId)) continue;
-        if (actorIsAgent && actor.actorId === mentionedId) continue;
+        if (actorIsAgent && commentActorId === mentionedId) continue;
         wakeups.set(mentionedId, {
           source: "automation",
           triggerDetail: "system",
           reason: "issue_comment_mentioned",
           payload: { issueId: id, commentId: comment.id },
-          requestedByActorType: actor.actorType,
-          requestedByActorId: actor.actorId,
+          requestedByActorType: commentActorType,
+          requestedByActorId: commentActorId,
           contextSnapshot: {
             issueId: id,
             taskId: id,

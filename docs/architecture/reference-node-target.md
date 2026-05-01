@@ -1,5 +1,9 @@
 # Reference Node Target
 
+Canonical set entrypoint:
+[canonical/README.md](canonical/README.md)
+
+
 This is the current contract for a correct private-first Studio54 node. It is
 based on the proven fresh-node behavior on `srv1264451` and the committed repo
 state.
@@ -197,3 +201,4 @@ runtime source-of-truth file. It is a shared operational knowledge working copy.
 - Which parts of the fresh-node sequence should become a single idempotent
   bootstrap command.
 - Per-task Honcho session mapping.
+
