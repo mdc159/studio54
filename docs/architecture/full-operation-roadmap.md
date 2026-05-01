@@ -174,7 +174,8 @@ be proven separately.
 5. Document battery/Tailscale/Termux:Boot requirements and whether `sshd`
    survives reboot in practice.
 6. Capture the SSH auth lesson: `authorized_keys` must contain one clean public
-   key line, debug-mode `sshd -ddd` may exit after one attempt, and
+   key line, bootstrap snippets can seed stale public keys after a Donna key
+   rotation, debug-mode `sshd -ddd` may exit after one attempt, and
    `connection_refused` after debugging usually means restart normal daemon mode
    before changing topology.
 7. Keep Studio54 topology disabled until an explicit enablement PR lands.
