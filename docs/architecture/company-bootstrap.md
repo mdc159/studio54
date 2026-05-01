@@ -1,5 +1,7 @@
 # Company Bootstrap
 
+Canonical architecture entrypoint: [canonical/README.md](canonical/README.md).
+
 This document defines the minimal company bootstrap path for the active direct
 `hermes_local` Paperclip architecture.
 
@@ -8,6 +10,8 @@ It describes only the path proven or directly required by the fresh-node
 
 Primary related docs:
 
+- Canonical launch/operation map:
+  [canonical/vps-launch-and-company-operation.md](canonical/vps-launch-and-company-operation.md)
 - Hermes runtime boundaries: [hermes-runtime.md](hermes-runtime.md)
 - Paperclip `hermes_local` contract:
   [paperclip-hermes-local-contract.md](paperclip-hermes-local-contract.md)

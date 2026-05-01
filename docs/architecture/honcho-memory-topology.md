@@ -1,5 +1,7 @@
 # Honcho Memory Topology
 
+Canonical architecture entrypoint: [canonical/README.md](canonical/README.md).
+
 This document is the concrete operator spec for memory topology on the active
 direct `hermes_local` architecture.
 

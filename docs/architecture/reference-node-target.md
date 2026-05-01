@@ -1,11 +1,15 @@
 # Reference Node Target
 
+Canonical architecture entrypoint: [canonical/README.md](canonical/README.md).
+
 This is the current contract for a correct private-first Studio54 node. It is
 based on the proven fresh-node behavior on `srv1264451` and the committed repo
 state.
 
 Primary related docs:
 
+- Canonical launch/operation map:
+  [canonical/vps-launch-and-company-operation.md](canonical/vps-launch-and-company-operation.md)
 - Hermes runtime boundaries: [hermes-runtime.md](hermes-runtime.md)
 - Memory model: [memory-model.md](memory-model.md)
 - Paperclip `hermes_local` contract:

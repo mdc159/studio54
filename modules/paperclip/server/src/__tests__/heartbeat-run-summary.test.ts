@@ -52,6 +52,24 @@ describe("buildHeartbeatRunIssueComment", () => {
     expect(buildHeartbeatRunIssueComment({ message: "completed" })).toBe("completed");
   });
 
+  it("skips command approval noise when selecting automatic issue comment text", () => {
+    expect(
+      buildHeartbeatRunIssueComment({
+        summary: "⚠️ DANGEROUS COMMAND: Security scan\nChoice [o/s/D]: ✗ Denied",
+        result: "useful synthesis",
+      }),
+    ).toBe("useful synthesis");
+  });
+
+  it("returns null instead of posting command approval noise", () => {
+    expect(
+      buildHeartbeatRunIssueComment({
+        summary: "┊ review diff\n+{\"body\":\"approval noise\"}",
+        result: "Downloaded content will be executed\nChoice [o/s/D]: ✗ Denied",
+      }),
+    ).toBeNull();
+  });
+
   it("returns null when there is no usable final text", () => {
     expect(buildHeartbeatRunIssueComment({ costUsd: 1.2 })).toBeNull();
   });

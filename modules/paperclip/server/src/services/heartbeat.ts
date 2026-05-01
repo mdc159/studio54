@@ -2913,6 +2913,21 @@ export function heartbeatService(db: Db) {
     return Boolean(run || deferredWake);
   }
 
+  async function hasOpenChildIssues(companyId: string, issueId: string) {
+    return db
+      .select({ id: issues.id })
+      .from(issues)
+      .where(
+        and(
+          eq(issues.companyId, companyId),
+          eq(issues.parentId, issueId),
+          sql`${issues.status} not in ('done', 'cancelled')`,
+        ),
+      )
+      .limit(1)
+      .then((rows) => rows.length > 0);
+  }
+
   async function enqueueStrandedIssueRecovery(input: {
     issueId: string;
     agentId: string;
@@ -3033,6 +3048,11 @@ export function heartbeatService(db: Db) {
       }
 
       if (await hasActiveExecutionPath(issue.companyId, issue.id)) {
+        result.skipped += 1;
+        continue;
+      }
+
+      if (await hasOpenChildIssues(issue.companyId, issue.id)) {
         result.skipped += 1;
         continue;
       }

@@ -26,4 +26,8 @@ if [ "$changed" = "1" ]; then
     chown -R node:node /paperclip
 fi
 
+if [ ! -x /usr/local/bin/hermes ] && [ -x /opt/hermes-agent/venv/bin/hermes ]; then
+    ln -sf /opt/hermes-agent/venv/bin/hermes /usr/local/bin/hermes
+fi
+
 exec gosu node "$@"

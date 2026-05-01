@@ -17,6 +17,15 @@ function readCommentText(value: unknown) {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function isCommandApprovalNoise(value: string) {
+  return (
+    /DANGEROUS COMMAND: Security scan/i.test(value) ||
+    /Downloaded content will be executed/i.test(value) ||
+    /Choice \[o\/s\/D\]/i.test(value) ||
+    /^\s*┊\s*review diff/im.test(value)
+  );
+}
+
 export function mergeHeartbeatRunResultJson(
   resultJson: Record<string, unknown> | null | undefined,
   summary: string | null | undefined,
@@ -79,10 +88,11 @@ export function buildHeartbeatRunIssueComment(
     return null;
   }
 
-  return (
-    readCommentText(resultJson.summary)
-    ?? readCommentText(resultJson.result)
-    ?? readCommentText(resultJson.message)
-    ?? null
-  );
+  const candidates = [resultJson.summary, resultJson.result, resultJson.message];
+  for (const candidate of candidates) {
+    const text = readCommentText(candidate);
+    if (text && !isCommandApprovalNoise(text)) return text;
+  }
+
+  return null;
 }
