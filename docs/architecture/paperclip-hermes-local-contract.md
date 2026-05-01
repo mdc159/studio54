@@ -191,7 +191,9 @@ For Langfuse lookup, use the same Paperclip run ID. On the direct
 `hermes_local` path, `PAPERCLIP_RUN_ID`, `HERMES_RUN_ID`, and
 `LANGFUSE_TRACE_ID` are the same value, so the Paperclip run ID is the Langfuse
 trace ID. See [Langfuse Traceability](langfuse-traceability.md) for capture
-policy and trace-record expectations.
+policy and trace-record expectations, and
+[Langfuse Integration Status](langfuse-integration-status.md) for the broader
+cleanup plan and benefits.
 
 ## Known Observed Failure Modes
 

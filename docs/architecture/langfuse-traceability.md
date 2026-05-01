@@ -5,6 +5,9 @@ the source of truth for company state, task status, approvals, artifacts, or
 memory. Paperclip remains the system of record for company and issue state;
 Hermes remains the runtime of record for agent execution.
 
+For the plain-language integration status, cleanup plan, and expected benefits,
+see [Langfuse Integration Status](langfuse-integration-status.md).
+
 ## Active `hermes_local` Path
 
 On the direct Paperclip `hermes_local` path, one run identifier is used across

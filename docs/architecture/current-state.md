@@ -230,7 +230,9 @@ Explicit list of things referenced by `north-star.md` but absent today:
   Langfuse trace ID equals the Paperclip run ID. Prompt/output capture is
   intentionally enabled for the private self-hosted stack, with
   `LANGFUSE_CAPTURE_CONTENT=false` as the kill switch. The canonical operator
-  contract is [Langfuse Traceability](langfuse-traceability.md).
+  contract is [Langfuse Traceability](langfuse-traceability.md), and the
+  integration narrative is
+  [Langfuse Integration Status](langfuse-integration-status.md).
 - **`vps-hub` compose implementation** — the target is declared with 15
   services but `compose_files` is empty.
 - **Node manifest for this machine** — no live `nodes/<this-host>/` entry
