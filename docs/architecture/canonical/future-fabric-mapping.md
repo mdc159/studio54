@@ -12,7 +12,7 @@ not promote future work into the active contract.
 | Company-scoped local/private memory | Company `HERMES_HOME` under the Paperclip data tree | Active |
 | Self-hosted Honcho | Loopback Honcho used by inner Hermes through generated `honcho.json` | Active |
 | Honcho tenant key | Paperclip `companyId` as workspace | Active |
-| Honcho AI peer | `paperclip-agent-<agent-id>` after agent-aware rendering | Active |
+| Honcho AI peer | `paperclip-agent-<agent-id>` for one-agent and agent-aware renders; manager/worker currently shares one home-local `honcho.json` | Active with caveat |
 | One-agent bootstrap | Reusable one-agent company bootstrap proof | Active |
 | Manager/worker bootstrap | Reusable manager/worker proof with shared company home | Active with caveat |
 | Paperclip issue state | Explicit final PATCH with `status: "done"` and comment | Active |

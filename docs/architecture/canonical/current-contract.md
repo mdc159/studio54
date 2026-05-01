@@ -18,8 +18,11 @@ the current reference node shape.
 - Honcho is additive; it does not replace Hermes local state under
   `HERMES_HOME`.
 - The Honcho workspace key is the Paperclip `companyId`.
-- The Honcho AI peer is `paperclip-agent-<agent-id>` after agent-aware
-  rendering.
+- For one-agent bootstrap, the Honcho AI peer is
+  `paperclip-agent-<agent-id>` after agent-aware rendering.
+- In the current manager/worker topology, manager and worker share one
+  company-scoped `HERMES_HOME`, so home-local files such as `honcho.json` are
+  shared and the last agent-aware render can determine the active `aiPeer`.
 
 ## Bootstrap Contract
 

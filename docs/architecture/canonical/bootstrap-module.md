@@ -45,7 +45,7 @@ Inputs:
 - Company name and description.
 - Agent names, roles, titles, and model.
 - Topology selection: `one-agent` or `manager-worker`.
-- Optional Honcho base URL and operator peer defaults.
+- Source env values for Honcho base URL and operator peer defaults.
 - Container-visible company Hermes home path.
 
 Outputs:
@@ -67,7 +67,11 @@ The module guarantees:
 - Exact-name company reuse or explicit failure on duplicate company names.
 - Company-scoped local Hermes runtime state.
 - Honcho workspace set to the Paperclip `companyId`.
-- Honcho AI peer set to `paperclip-agent-<agent-id>` after agent creation.
+- Honcho AI peer set to `paperclip-agent-<agent-id>` after agent creation for
+  the one-agent path.
+- In manager/worker bootstrap, the shared company home means the rendered
+  `honcho.json` can reflect the last prepared agent rather than separate
+  per-agent peer files.
 - Prepared home ownership suitable for the Paperclip runtime user.
 - Direct `hermes_local` execution for validation.
 - Explicit Paperclip issue completion when the agent follows the prompt.
@@ -101,7 +105,10 @@ Rerender `honcho.json` after agent creation:
 
 - First preparation can only know the company ID.
 - After agent creation, rerun preparation with `--agent-id`.
-- The final AI peer must be `paperclip-agent-<agent-id>`.
+- In the one-agent path, the final AI peer must be
+  `paperclip-agent-<agent-id>`.
+- In the manager/worker path, the final shared `honcho.json` can reflect the
+  last prepared agent until per-agent Hermes homes are implemented.
 
 Create delegated worker issues in two steps:
 

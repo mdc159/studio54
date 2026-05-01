@@ -9,7 +9,10 @@ rules. It is for adding nodes and companies without accidental memory collision.
 - Paperclip company memory is company-scoped.
 - Inner Hermes uses company-scoped `HERMES_HOME`.
 - Honcho workspace key is the Paperclip `companyId`.
-- Honcho AI peer is `paperclip-agent-<agent-id>`.
+- Honcho AI peer is `paperclip-agent-<agent-id>` for one-agent and
+  agent-aware renders.
+- In manager/worker bootstrap, the shared company home means the active
+  home-local `honcho.json` can reflect the last prepared agent.
 - No Paperclip company points at `/root/.hermes`.
 - No company gets ambient access to another company's memory.
 - Promotion into shared knowledge is explicit.
@@ -29,13 +32,13 @@ flowchart TB
     subgraph CompanyA["Company-local layer: Company A"]
         AHH["Company A HERMES_HOME"]
         AHW["Honcho workspace = companyAId"]
-        AHP["AI peer = paperclip-agent-agentA"]
+        AHP["AI peer from company honcho.json"]
     end
 
     subgraph CompanyB["Company-local layer: Company B"]
         BHH["Company B HERMES_HOME"]
         BHW["Honcho workspace = companyBId"]
-        BHP["AI peer = paperclip-agent-agentB"]
+        BHP["AI peer from company honcho.json"]
     end
 
     subgraph Future["Shared future-state layer"]
@@ -77,7 +80,10 @@ For a new Paperclip execution node:
 - Bring up Paperclip with the direct `hermes_local` execution path.
 - For each company, prepare a company-scoped `HERMES_HOME`.
 - Render `honcho.json` with `workspace = companyId`.
-- Render `aiPeer = paperclip-agent-<agent-id>` after agent creation.
+- Render `aiPeer = paperclip-agent-<agent-id>` after agent creation for
+  one-agent companies.
+- For manager/worker companies, treat the shared `honcho.json` peer as
+  company-home-local state until per-agent homes exist.
 - Validate with a bounded assigned issue that explicitly closes itself.
 
 For a company move between nodes:
