@@ -5,8 +5,8 @@ personas through safe, auditable SSH/tmux contracts.
 
 It captures the architecture proven by the Victoria Phase 1 / Phase 1.5 work:
 Miguel can reach Victoria from iPad/Moshi over SSH/Tailscale, Donna can operate
-Victoria through bounded SSH/tmux control, and Studio54 now owns a read-only
-`hermes-grid --check` readiness command before any runtime grid launch is added.
+Victoria through bounded SSH/tmux control, and Studio54 now owns the check,
+probe, roster, status, and explicit attach surfaces for the operator grid.
 
 ## Current Status
 
@@ -17,6 +17,10 @@ Victoria through bounded SSH/tmux control, and Studio54 now owns a read-only
 - `./bin/hermes-grid attach <tab>` exists as explicit operator runtime attach mode.
 - `./bin/hermes-grid attach Victoria --dry-run` prints the runtime attach plan
   without executing it.
+- `./bin/hermes-grid roster` exposes the local Donna/Studio54 hub roster without
+  remote execution.
+- `./bin/hermes-grid status` exposes the local hub readiness and sound-off
+  contract without remote execution.
 - `Nikolai`, `WSL`, and `Termux` remain disabled/pending until the
   Victoria-only runtime attach path is proven boring and repeatable.
 
@@ -48,8 +52,8 @@ The grid is not:
 |---|---|
 | `docs/architecture/remote-persona-grid.md` | Canonical architecture and rollout contract. |
 | `stack/topology/hermes-grid.json` | Executable persona/tab topology manifest. |
-| `./bin/hermes-grid` | Repo-root CLI shim for grid readiness checks and explicit operator attach. |
-| `stack/control/control1215/hermes_grid.py` | Check, probe, and generic topology-driven attach implementation. |
+| `./bin/hermes-grid` | Repo-root CLI shim for grid readiness checks, local roster/status, and explicit operator attach. |
+| `stack/control/control1215/hermes_grid.py` | Check, probe, local hub roster/status, and generic topology-driven attach implementation. |
 | Agent Knowledge Exchange Victoria doc | Victoria-specific validation evidence and handoff history. |
 | Linear / GitHub issues and PRs | Durable audit trail for rollout decisions. |
 
@@ -67,7 +71,23 @@ chat with Donna.
 ### Operator Control Plane
 
 Donna, running as outer/operator Hermes, makes architectural decisions, prepares
-bounded work, runs Studio54 checks, and records outcomes.
+bounded work, runs Studio54 checks, and records outcomes. In this grid she is the
+hub persona rather than a remote tab: Donna conducts the roster through the
+Studio54 CLI and topology contract.
+
+### Donna / Studio54 Hub Contract
+
+Donna is the Queen Bee control-plane persona for this grid. Her hub contract is:
+
+- operate through Studio54 commands and topology, not hidden one-off paths;
+- run local `roster` and `status` before promoting new live behavior;
+- attach only to enabled, validated tabs;
+- keep pending personas disabled until discovery, check, probe, and dry-run pass;
+- coordinate sound-off reports using the shared schema;
+- record durable evidence in GitHub, Linear, and Agent Knowledge Exchange;
+- preserve low-surprise operation: check, probe, dry-run, then attach;
+- avoid copying secrets, sessions, memory stores, or raw runtime dumps between
+  hosts.
 
 ### Transport Plane
 
@@ -259,6 +279,30 @@ Explicit, bounded remote verification:
 ./bin/hermes-grid --check --probe-remote
 ```
 
+### Hub Roster Mode
+
+Local-only roster view:
+
+```bash
+./bin/hermes-grid roster
+```
+
+The roster command shows Donna as the hub/control-plane persona and lists tab
+states from `stack/topology/hermes-grid.json`. It must not perform SSH, tmux, or
+runtime actions.
+
+### Hub Status Mode
+
+Local-only hub status and sound-off schema view:
+
+```bash
+./bin/hermes-grid status
+```
+
+The status command summarizes enabled/pending tabs and prints the sound-off
+fields that Donna expects remote personas to use. It must not perform SSH, tmux,
+remote probes, runtime attach, or prompt injection.
+
 ### Runtime Attach Mode
 
 Explicit operator attach to an enabled tab:
@@ -448,13 +492,16 @@ method rather than raw multi-line paste into a live Hermes prompt.
 Remote personas should report substantive work in a consistent format:
 
 ```text
-Outcome
-Confirmed
-Changed
-Validation
-Safety
-Next Action
+outcome
+confirmed
+changed
+validation
+safety
+next_action
 ```
+
+`./bin/hermes-grid status` prints this schema locally so Donna can keep the party
+using one reporting shape before any additional runtime attach is attempted.
 
 This format keeps multi-agent coordination readable and makes it easier for
 Donna to summarize, compare, and promote work across personas.
