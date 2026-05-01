@@ -13,6 +13,7 @@ Purpose:
 Current artifacts:
 
 - [Current contract](current-contract.md)
+- [VPS launch and company operation](vps-launch-and-company-operation.md)
 - [Paperclip hermes_local contract](../paperclip-hermes-local-contract.md)
 - [Company bootstrap](../company-bootstrap.md)
 - [Honcho memory topology](../honcho-memory-topology.md)
@@ -46,6 +47,7 @@ Purpose:
 
 Current artifacts:
 
+- [VPS launch and company operation](vps-launch-and-company-operation.md)
 - [Bootstrap module](bootstrap-module.md)
 - [Node growth and isolation](node-growth-and-isolation.md)
 - [Reference node target](../reference-node-target.md)

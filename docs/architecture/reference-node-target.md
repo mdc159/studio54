@@ -8,6 +8,8 @@ state.
 
 Primary related docs:
 
+- Canonical launch/operation map:
+  [canonical/vps-launch-and-company-operation.md](canonical/vps-launch-and-company-operation.md)
 - Hermes runtime boundaries: [hermes-runtime.md](hermes-runtime.md)
 - Memory model: [memory-model.md](memory-model.md)
 - Paperclip `hermes_local` contract:

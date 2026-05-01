@@ -11,11 +11,12 @@ implemented.
 ## Reading Order
 
 1. [Current contract](current-contract.md)
-2. [Bootstrap module](bootstrap-module.md)
-3. [Layer map](layer-map.md)
-4. [Node growth and isolation](node-growth-and-isolation.md)
-5. [Future fabric mapping](future-fabric-mapping.md)
-6. Detailed references as needed
+2. [VPS launch and company operation](vps-launch-and-company-operation.md)
+3. [Bootstrap module](bootstrap-module.md)
+4. [Layer map](layer-map.md)
+5. [Node growth and isolation](node-growth-and-isolation.md)
+6. [Future fabric mapping](future-fabric-mapping.md)
+7. Detailed references as needed
 
 ## Three-Layer Frame
 
@@ -30,6 +31,7 @@ and explicit Paperclip issue completion.
 Start with:
 
 - [Current contract](current-contract.md)
+- [VPS launch and company operation](vps-launch-and-company-operation.md)
 - [Paperclip hermes_local contract](../paperclip-hermes-local-contract.md)
 - [Company bootstrap](../company-bootstrap.md)
 
@@ -43,6 +45,7 @@ module.
 
 Start with:
 
+- [VPS launch and company operation](vps-launch-and-company-operation.md)
 - [Bootstrap module](bootstrap-module.md)
 - [Node growth and isolation](node-growth-and-isolation.md)
 - [Reference node target](../reference-node-target.md)
@@ -69,6 +72,7 @@ Use these for detailed contracts and proof history:
 
 - [Paperclip hermes_local contract](../paperclip-hermes-local-contract.md)
 - [Company bootstrap](../company-bootstrap.md)
+- [VPS launch and company operation](vps-launch-and-company-operation.md)
 - [Honcho memory topology](../honcho-memory-topology.md)
 - [Reference node target](../reference-node-target.md)
 - [Operator install runbook](../../../deploy/vps/INSTALL.md)

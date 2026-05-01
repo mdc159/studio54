@@ -4,6 +4,8 @@ This is the procedural bring-up path for a fresh private-first Studio54 node.
 
 Architecture contracts:
 
+- Canonical launch/operation map:
+  [../../docs/architecture/canonical/vps-launch-and-company-operation.md](../../docs/architecture/canonical/vps-launch-and-company-operation.md)
 - Reference node target:
   [../../docs/architecture/reference-node-target.md](../../docs/architecture/reference-node-target.md)
 - Hermes runtime:

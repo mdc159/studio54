@@ -7,6 +7,8 @@ This document captures the proven `hermes_local` runtime contract from
 
 Primary related docs:
 
+- Canonical launch/operation map:
+  [canonical/vps-launch-and-company-operation.md](canonical/vps-launch-and-company-operation.md)
 - Hermes runtime boundaries: [hermes-runtime.md](hermes-runtime.md)
 - Company bootstrap path: [company-bootstrap.md](company-bootstrap.md)
 - Operator runbook: [../../deploy/vps/INSTALL.md](../../deploy/vps/INSTALL.md)
