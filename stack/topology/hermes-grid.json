@@ -1,0 +1,34 @@
+{
+  "hub": "Studio54 / Donna",
+  "tabs": [
+    {
+      "name": "Victoria",
+      "enabled": true,
+      "kind": "remote-ssh-tmux",
+      "command": "ssh victoria -t victoria-attach",
+      "ssh_alias": "victoria",
+      "expected_tmux_session": "victoria-hermes",
+      "expected_window_label": "Victoria",
+      "fallback_command": "victoria-hermes-session",
+      "notes": "First remote tab only. Nikolai, WSL, and Termux remain disabled until Victoria passes hermes-grid --check."
+    },
+    {
+      "name": "Nikolai",
+      "enabled": false,
+      "kind": "pending",
+      "notes": "Blocked until Victoria-only readiness passes."
+    },
+    {
+      "name": "WSL",
+      "enabled": false,
+      "kind": "pending",
+      "notes": "Blocked until Victoria-only readiness passes."
+    },
+    {
+      "name": "Termux",
+      "enabled": false,
+      "kind": "pending",
+      "notes": "Blocked until Victoria-only readiness passes."
+    }
+  ]
+}

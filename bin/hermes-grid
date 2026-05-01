@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Repo-root shim for Studio54 hermes-grid readiness checks.
+#
+# Phase 1.5 intentionally implements only read-only --check mode.
+
+set -Eeuo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "${script_dir}/.." && pwd)"
+
+exec uv run --project "${repo_root}/stack/control" --quiet hermes-grid "$@"
