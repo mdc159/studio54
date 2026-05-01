@@ -122,3 +122,26 @@ def test_attach_executes_enabled_tab_command_only_when_explicit() -> None:
 
     assert exit_code == 0
     assert calls == [["ssh", "victoria", "-t", "victoria-attach"]]
+
+
+def test_roster_prints_donna_hub_and_tab_states(capsys) -> None:
+    assert hermes_grid.main(["roster"]) == 0
+    out = capsys.readouterr().out
+    assert "Studio54 hermes-grid roster" in out
+    assert "Hub: Studio54 / Donna" in out
+    assert "Donna: role=hub status=operator-control-plane" in out
+    assert "Victoria: enabled kind=remote-ssh-tmux" in out
+    assert "Nikolai: disabled kind=pending" in out
+    assert "Termux: disabled kind=pending" in out
+    assert "hostname=" not in out
+
+
+def test_status_prints_sound_off_contract_without_remote_execution(capsys) -> None:
+    assert hermes_grid.main(["status"]) == 0
+    out = capsys.readouterr().out
+    assert "Studio54 hermes-grid status" in out
+    assert "Donna hub: READY" in out
+    assert "Sound-off contract:" in out
+    for field in ["outcome", "confirmed", "changed", "validation", "safety", "next_action"]:
+        assert field in out
+    assert "remote execution: none" in out

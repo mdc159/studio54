@@ -166,6 +166,39 @@ def format_checks(checks: Sequence[Check]) -> str:
     return "\n".join(lines)
 
 
+def format_roster(config: dict | None = None) -> str:
+    grid = config or load_grid_config()
+    hub = grid.get("hub", "Studio54 / Donna")
+    lines = ["Studio54 hermes-grid roster", "", f"Hub: {hub}"]
+    lines.append("Donna: role=hub status=operator-control-plane")
+    lines.append("")
+    lines.append("Tabs:")
+    for tab in _tabs(grid):
+        name = tab.get("name", "<unnamed>")
+        state = "enabled" if tab.get("enabled") else "disabled"
+        kind = tab.get("kind", "<unset>")
+        lines.append(f"  {name}: {state} kind={kind}")
+    lines.append("")
+    lines.append("Safety: roster is local/topology-only; no remote execution")
+    return "\n".join(lines)
+
+
+def format_status(config: dict | None = None) -> str:
+    grid = config or load_grid_config()
+    enabled_tabs = [tab.get("name", "<unnamed>") for tab in _tabs(grid) if tab.get("enabled")]
+    pending_tabs = [tab.get("name", "<unnamed>") for tab in _tabs(grid) if not tab.get("enabled")]
+    lines = ["Studio54 hermes-grid status", ""]
+    lines.append("Donna hub: READY")
+    lines.append(f"Enabled tabs: {', '.join(enabled_tabs) if enabled_tabs else 'none'}")
+    lines.append(f"Pending tabs: {', '.join(pending_tabs) if pending_tabs else 'none'}")
+    lines.append("remote execution: none")
+    lines.append("")
+    lines.append("Sound-off contract:")
+    for field in ["outcome", "confirmed", "changed", "validation", "safety", "next_action"]:
+        lines.append(f"  - {field}")
+    return "\n".join(lines)
+
+
 def checks_exit_code(checks: Sequence[Check]) -> int:
     return 1 if any(check.status == "FAIL" for check in checks) else 0
 
@@ -221,7 +254,7 @@ def attach_tab(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="hermes-grid")
-    parser.add_argument("command", nargs="?", choices=["attach"], help="Runtime command. Use 'attach' to open an explicit operator attach session.")
+    parser.add_argument("command", nargs="?", choices=["attach", "roster", "status"], help="Runtime command. Use 'attach' to open an explicit operator attach session; 'roster' and 'status' are local-only hub views.")
     parser.add_argument("tab", nargs="?", help="Grid tab name for runtime commands, for example Victoria.")
     parser.add_argument("--check", action="store_true", help="Run read-only readiness checks and print the dry-run launch summary.")
     parser.add_argument("--probe-remote", action="store_true", help="Include a non-interactive SSH probe for Victoria. Off by default.")
@@ -241,8 +274,23 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("attach requires a tab name, e.g. hermes-grid attach Victoria")
         return attach_tab(args.tab, dry_run=args.dry_run)
 
+    if args.command in {"roster", "status"}:
+        if args.tab:
+            parser.error(f"{args.command} does not accept a tab argument")
+        if args.as_json:
+            parser.error("--json is only supported with --check")
+        if args.probe_remote:
+            parser.error("--probe-remote is only supported with --check")
+        if args.dry_run:
+            parser.error("--dry-run is only supported with runtime attach")
+        if args.command == "roster":
+            print(format_roster())
+        else:
+            print(format_status())
+        return 0
+
     if not args.check:
-        parser.error("use --check for readiness or 'attach <tab>' for explicit runtime attach")
+        parser.error("use --check for readiness, 'roster'/'status' for local hub views, or 'attach <tab>' for explicit runtime attach")
         return 2
 
     if args.dry_run:
