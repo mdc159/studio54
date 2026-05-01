@@ -42,6 +42,17 @@ def _run(
     return runner(args, check=False, text=True, capture_output=True, timeout=8)
 
 
+def _ssh_alias_detail(ssh_fields: dict[str, str]) -> str:
+    """Summarize an SSH alias without exposing hostnames/IPs or key material."""
+    return " ".join(
+        (
+            "hostname=<configured>" if ssh_fields.get("hostname") else "hostname=<unset>",
+            f"user={ssh_fields.get('user', '<unset>')}",
+            f"port={ssh_fields.get('port', '<unset>')}",
+        )
+    )
+
+
 def collect_checks(
     *,
     probe_remote: bool = False,
@@ -111,7 +122,7 @@ def collect_checks(
                 _check(
                     "PASS",
                     "ssh_alias",
-                    " ".join(f"{key}={ssh_fields.get(key, '<unset>')}" for key in ("hostname", "user", "port")),
+                    _ssh_alias_detail(ssh_fields),
                 )
             )
         else:

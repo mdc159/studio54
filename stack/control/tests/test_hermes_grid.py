@@ -28,7 +28,8 @@ def test_collect_checks_sanitizes_ssh_alias_details() -> None:
     )
     alias = next(check for check in checks if check.name == "ssh_alias")
     assert alias.status == "PASS"
-    assert "hostname=paperclip.tailnet.example" in alias.detail
+    assert "hostname=<configured>" in alias.detail
+    assert "paperclip.tailnet.example" not in alias.detail
     assert "user=root" in alias.detail
     assert "port=22" in alias.detail
     assert "identityfile" not in alias.detail
