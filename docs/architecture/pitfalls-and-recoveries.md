@@ -499,6 +499,18 @@ envelope:
 
 Even for a single event.
 
+### G.5 Content capture is intentional but bounded
+
+**Symptom.** Metadata-only traces were not enough to debug model behavior or
+build useful eval examples from private development runs.
+
+**Fix.** Hermes captures OpenAI-compatible request messages as Langfuse
+generation `input` and final assistant text as generation `output` on the
+private self-hosted stack. Operators can disable capture with
+`LANGFUSE_CAPTURE_CONTENT=false`. `LANGFUSE_CONTENT_MAX_CHARS` defaults to
+`32768`, and truncation is recorded in observation metadata. See
+[Langfuse Traceability](langfuse-traceability.md).
+
 ---
 
 ## Phase H — Unified launch

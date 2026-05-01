@@ -61,6 +61,31 @@ else:
     logger.info("No .env file found. Using system environment variables.")
 
 
+def _langfuse_chat_completion_output(response: Any) -> str | None:
+    """Extract final assistant text from an OpenAI-compatible chat response."""
+    try:
+        choices = getattr(response, "choices", None) or []
+        if not choices:
+            return None
+        message = getattr(choices[0], "message", None)
+        content = getattr(message, "content", None)
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            parts: list[str] = []
+            for item in content:
+                if isinstance(item, dict):
+                    text = item.get("text")
+                else:
+                    text = getattr(item, "text", None)
+                if isinstance(text, str):
+                    parts.append(text)
+            return "".join(parts) or None
+    except Exception:
+        return None
+    return None
+
+
 # Import our tool system
 from model_tools import (
     get_tool_definitions,
@@ -5587,6 +5612,7 @@ class AIAgent:
                         base_url=self.base_url,
                         streaming=False,
                         api_mode=self.api_mode,
+                        input=api_kwargs.get("messages"),
                     )
                     try:
                         result["response"] = request_client_holder["client"].chat.completions.create(**api_kwargs)
@@ -5594,7 +5620,10 @@ class AIAgent:
                         probe.finish(status="error", error=exc)
                         raise
                     else:
-                        probe.finish(status="success")
+                        probe.finish(
+                            status="success",
+                            output=_langfuse_chat_completion_output(result["response"]),
+                        )
             except Exception as e:
                 result["error"] = e
             finally:
@@ -5960,6 +5989,7 @@ class AIAgent:
                 base_url=self.base_url,
                 streaming=True,
                 api_mode=self.api_mode,
+                input=api_kwargs.get("messages"),
             )
             try:
                 stream = request_client_holder["client"].chat.completions.create(**stream_kwargs)
@@ -6114,11 +6144,10 @@ class AIAgent:
             except Exception as exc:
                 probe.finish(status="error", error=exc)
                 raise
-            else:
-                probe.finish(status="success")
 
             # Build mock response matching non-streaming shape
             full_content = "".join(content_parts) or None
+            probe.finish(status="success", output=full_content)
             mock_tool_calls = None
             has_truncated_tool_args = False
             if tool_calls_acc:

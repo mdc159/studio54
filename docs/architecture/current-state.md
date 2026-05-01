@@ -227,8 +227,10 @@ Explicit list of things referenced by `north-star.md` but absent today:
   in Hermes for OpenAI-compatible chat completions. On the Paperclip
   `hermes_local` path, the Paperclip run ID is passed through as
   `PAPERCLIP_RUN_ID`, `HERMES_RUN_ID`, and `LANGFUSE_TRACE_ID`, so the
-  Langfuse trace ID equals the Paperclip run ID. Prompt/output capture remains
-  intentionally out of scope.
+  Langfuse trace ID equals the Paperclip run ID. Prompt/output capture is
+  intentionally enabled for the private self-hosted stack, with
+  `LANGFUSE_CAPTURE_CONTENT=false` as the kill switch. The canonical operator
+  contract is [Langfuse Traceability](langfuse-traceability.md).
 - **`vps-hub` compose implementation** — the target is declared with 15
   services but `compose_files` is empty.
 - **Node manifest for this machine** — no live `nodes/<this-host>/` entry
