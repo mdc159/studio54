@@ -1,5 +1,9 @@
 # Company Bootstrap
 
+Canonical set entrypoint:
+[canonical/README.md](canonical/README.md)
+
+
 This document defines the minimal company bootstrap path for the active direct
 `hermes_local` Paperclip architecture.
 
@@ -279,3 +283,4 @@ Paperclip assignment/heartbeat execution path.
 
 - The archival policy for old durable test companies is not finalized.
 - Per-agent Hermes homes for manager/worker companies are not implemented.
+
