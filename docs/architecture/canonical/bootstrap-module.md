@@ -1,208 +1,157 @@
-﻿# Direct Paperclip/Hermes Bootstrap Module
+# Bootstrap Module
 
-This document describes the proven Paperclip/Hermes bring-up work as a
-contained reusable module inside the larger architecture.
+Module name: direct Paperclip/Hermes company bootstrap module.
 
-## Module Name
-
-Direct Paperclip/Hermes company bootstrap module
-
-## Purpose
-
-Turn the active direct hermes_local runtime contract into a repeatable
-company-launch block that can be reused on VPS nodes.
-
-This module is not the whole architecture.
-
-It is the reusable block that:
-
-- creates a company execution boundary
-- wires Hermes into that boundary
-- prepares self-hosted Honcho integration when enabled
-- validates that the lifecycle actually works
-
-## Inputs
-
-Operator inputs:
-
-- Paperclip base URL / auth context
-- topology:
-  - one-agent
-  - manager-worker
-- company name
-- optional company description
-- model
-- agent names/roles/titles when defaults are not acceptable
-- validation issue title/body
-
-Generated defaults:
-
-- company-scoped HERMES_HOME
-- `adapterConfig.env.HERMES_HOME`
-- honcho.json
-- validation bodies when omitted
-- verification API paths in script output
-
-## Outputs
-
-The module produces:
-
-- created or reused Paperclip company
-- created or reused Paperclip agent(s)
-- prepared company HERMES_HOME
-- rendered .env, config.yaml, honcho.json
-- validation issue
-- bounded run proof artifacts:
-  - issue ID
-  - run ID
-  - completion comment
-  - attribution fields
+This module is the reusable block proven by the recent Paperclip/Hermes/Honcho
+bootstrap work. It creates or reuses a Paperclip company, prepares the local
+Hermes runtime boundary for that company, wires self-hosted Honcho, creates
+agents, and proves execution with a bounded validation issue.
 
 ## Responsibilities
 
-The module is responsible for:
+The module performs the direct-path sequence:
 
-- create/reuse company
-- prepare company-scoped Hermes home
-- create/reuse agents
-- render honcho.json
-- assign active hermes_local runtime config
-- create validation issue
-- prove lifecycle with a bounded task
+1. Create or reuse a Paperclip company.
+2. Prepare a company-scoped Hermes home.
+3. Create or reuse Paperclip agents.
+4. Render `.env`, `config.yaml`, `honcho.json`, and local Hermes directories.
+5. Assign active `hermes_local` runtime config to the agent.
+6. Create a validation issue.
+7. Prove lifecycle completion with a bounded task.
 
-It is not responsible for:
+Current implementations:
 
-- outer Hermes bootstrap
-- gateway-first execution
-- generalized company autonomy
-- per-agent Hermes-home redesign
-- long-term shared memory fabric
+- `stack/prototype-local/scripts/prepare_paperclip_hermes_home.py`
+- `stack/prototype-local/scripts/bootstrap_paperclip_hermes_company.py`
+- `stack/prototype-local/templates/paperclip-hermes-one-agent.json`
+- `stack/prototype-local/templates/paperclip-hermes-manager-worker.json`
 
-## Current Implementations
+Supported topologies:
 
-Core scripts:
+- `one-agent`
+- `manager-worker`
 
-- stack/prototype-local/scripts/prepare_paperclip_hermes_home.py
-- stack/prototype-local/scripts/bootstrap_paperclip_hermes_company.py
+Current limitation:
 
-Bootstrap inputs:
+- Manager and worker share the same company-scoped `HERMES_HOME`.
+- This is practical company-level isolation, not per-agent Hermes home
+  isolation.
 
-- stack/prototype-local/templates/paperclip-hermes-one-agent.json
-- stack/prototype-local/templates/paperclip-hermes-manager-worker.json
+## Inputs And Outputs
 
-## Supported Topologies
+Inputs:
 
-### One-Agent
+- Paperclip API URL and API key.
+- Company name and description.
+- Agent names, roles, titles, and model.
+- Topology selection: `one-agent` or `manager-worker`.
+- Source env values for Honcho base URL and operator peer defaults.
+- Container-visible company Hermes home path.
 
-Use when the company is a compressed single-agent org.
+Outputs:
 
-### Manager-Worker
+- Paperclip company.
+- One or more `hermes_local` Paperclip agents.
+- Company-scoped Hermes home under
+  `/paperclip/instances/<instance-id>/companies/<company-id>/hermes-home`.
+- Agent runtime config with `adapterConfig.env.HERMES_HOME`.
+- Agent-aware `honcho.json` when an agent ID is available.
+- Validation issue assigned through the normal Paperclip execution path.
+- JSON summary with company, agent, Hermes home, Honcho peer, issue, and
+  verification API paths.
 
-Use when the company needs one delegating manager and one worker.
+## Guarantees And Boundaries
 
-## Current Limitation
+The module guarantees:
 
-Manager/worker currently shares one company-scoped HERMES_HOME.
+- Exact-name company reuse or explicit failure on duplicate company names.
+- Company-scoped local Hermes runtime state.
+- Honcho workspace set to the Paperclip `companyId`.
+- Honcho AI peer set to `paperclip-agent-<agent-id>` after agent creation for
+  the one-agent path.
+- In manager/worker bootstrap, the shared company home means the rendered
+  `honcho.json` can reflect the last prepared agent rather than separate
+  per-agent peer files.
+- Prepared home ownership suitable for the Paperclip runtime user.
+- Direct `hermes_local` execution for validation.
+- Explicit Paperclip issue completion when the agent follows the prompt.
 
-That means:
+The module does not guarantee:
 
-- company isolation is real
-- per-agent local Hermes-home isolation is not yet implemented
-
-Do not describe the current manager/worker shape as per-agent Hermes memory
-isolation.
-
-## Guarantees
-
-When the module succeeds on the active direct path, it guarantees:
-
-- the company uses direct per-company hermes_local
-- the company has an explicit HERMES_HOME
-- honcho.json is rendered for the company
-- the validation issue is runnable
-- successful bounded tasks can end done
-- final completion uses one PATCH with both status and comment
+- Per-agent Hermes homes.
+- Gateway-first Paperclip execution.
+- Per-task Honcho session mapping as an active contract.
+- Cross-node company migration.
+- Shared graph/vector fabric or alignment-log promotion.
 
 ## Dependencies
 
-The module depends on:
+The active path depends on:
 
-- healthy Paperclip API
-- hermes CLI inside the Paperclip execution environment
-- writable company data tree owned by the Paperclip runtime UID/GID
-- self-hosted Honcho when Honcho-backed memory is enabled
-- correct root/env projection into generated runtime files
+- A healthy Paperclip service.
+- A Paperclip image that contains a working `hermes` CLI.
+- The Hermes launcher and Python interpreter being executable by the Paperclip
+  runtime user.
+- Writable company Hermes home ownership for the Paperclip runtime UID/GID.
+- Self-hosted Honcho on loopback when Honcho memory is expected.
+- Hermes installed with the Honcho provider dependency inside the Paperclip
+  runtime environment.
+- Service environment precedence that keeps generated Honcho settings
+  authoritative.
 
-## Boundaries
+## Sequencing Rules
 
-This module owns:
+Rerender `honcho.json` after agent creation:
 
-- company bring-up on the active direct path
-- company-local Hermes runtime preparation
-- validation of the active task lifecycle
+- First preparation can only know the company ID.
+- After agent creation, rerun preparation with `--agent-id`.
+- In the one-agent path, the final AI peer must be
+  `paperclip-agent-<agent-id>`.
+- In the manager/worker path, the final shared `honcho.json` can reflect the
+  last prepared agent until per-agent Hermes homes are implemented.
 
-This module stops at:
+Create delegated worker issues in two steps:
 
-- a successfully bootstrapped and validated company
+- Create the child issue linked to the parent with `parentId`.
+- Leave the child unassigned and in `backlog`.
+- Activate it with a PATCH that sets `assigneeAgentId` and `status: "todo"`.
 
-Everything after that is organizational behavior, not bootstrap.
+Complete issues explicitly:
 
-## Failure Modes
+- Do not infer completion from process exit.
+- The final action is one PATCH with both `status: "done"` and a completion
+  comment.
+- The request must carry the Paperclip run ID for correct attribution.
 
-Known failure classes:
+## Failure Modes And Gotchas
 
-- wrong or ambient HERMES_HOME
-- missing honcho-ai dependency in the runtime
-- root-owned company tree
-- unresolved adapter env binding objects
-- assignment/task fields not reaching the adapter
-- child issue create-time assignment race
-- comment/wake attribution errors
-
-See:
-
-- [../paperclip-hermes-local-contract.md](../paperclip-hermes-local-contract.md)
-- [../pitfalls-and-recoveries.md](../pitfalls-and-recoveries.md)
-
-## Sequencing Rules Learned From Proofs
-
-These are part of the module contract now:
-
-1. rerender honcho.json after agent creation
-2. child issue creation must be linked/unassigned first, then activated
-3. issue completion must be explicit, not inferred from process exit
-
-### Manager/Worker Sequencing Rule
-
-To avoid the create-time assignment race:
-
-1. create linked child with parentId
-2. leave it unassigned / `backlog`
-3. activate it later with one PATCH setting:
-   - `assigneeAgentId`
-   - status: "todo"
-
-## Lessons Learned / Gotchas
-
-- HERMES_HOME is the true local memory boundary
-- Honcho is additive, not the whole memory system
-- ownership/permissions are part of correctness
-- service env precedence can silently break Honcho
-- tracing and memory are different concerns
+- `HERMES_HOME` is the true local memory boundary. If it is wrong, memory
+  isolation is wrong.
+- Honcho is additive, not the whole memory system.
+- Ownership and permissions are part of correctness, not a filesystem detail.
+- Service env precedence can silently break Honcho by loading the wrong `.env`.
+- Tracing and memory are different concerns; Langfuse correlation does not
+  prove memory isolation.
+- Passing unresolved adapter env binding objects can produce invalid runtime
+  values such as `[object Object]`.
+- Assignment wake paths must surface task fields into adapter config or the
+  adapter can fall back to no-task heartbeat behavior.
+- In the current manager/worker topology, shared home-local files mean the last
+  render can win for files such as `honcho.json`.
 
 ## Extension Points
 
-Safe near-term extensions:
+Near-term extensions should keep the module boundary intact:
 
-- template-backed bootstrap inputs
-- manager/worker defaults
-- richer validation harnesses
-- tighter runbook/operator ergonomics
+- Productize per-agent Hermes homes without changing company identity.
+- Formalize per-task Honcho session mapping.
+- Wrap the sequence in a higher-level idempotent node/company bootstrap command.
+- Add migration tooling for deliberate company moves between nodes.
+- Add stronger verification around Honcho workspace and peer behavior.
 
-Deferred extensions:
+Future-state extensions belong outside the current module contract until proven:
 
-- per-agent Hermes homes
-- per-task Honcho session mapping
-- broader company templates
-- alignment-log / graph / vector shared organizational memory fabric
-
+- Gateway-first Paperclip execution.
+- Shared memory fabric across companies.
+- Alignment logs, shared graph, and shared vector corpus promotion flows.
+- Provider-swappable role cognition.

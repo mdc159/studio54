@@ -1,8 +1,6 @@
 # Honcho Memory Topology
 
-Canonical set entrypoint:
-[canonical/README.md](canonical/README.md)
-
+Canonical architecture entrypoint: [canonical/README.md](canonical/README.md).
 
 This document is the concrete operator spec for memory topology on the active
 direct `hermes_local` architecture.
@@ -610,4 +608,3 @@ When wiring memory on a new node, confirm:
   - `aiPeer = paperclip-agent-<agent-id>`
 - no company points at `/root/.hermes`
 - cross-company knowledge transfer is explicit, not ambient
-

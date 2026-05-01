@@ -1,100 +1,78 @@
-﻿# Canonical Architecture Set
+# Canonical Architecture
 
-This is the preferred reading order for new operators and agents.
+This directory is the preferred starting point for operators and agents working
+on the current Studio54 node architecture.
 
-It sits above the detailed architecture docs as a synthesis layer. It does not
-replace the detailed reference docs.
-
-Use this set to answer three questions in order:
-
-1. What is the current proven contract?
-2. What part of the system is the reusable bootstrap/runtime module?
-3. Where does the larger long-horizon architecture vision begin?
+It is a synthesis layer. It explains what is active now, what is being
+productized next, and how the proven Paperclip/Hermes/Honcho work maps into the
+longer-horizon architecture without treating future-state design as already
+implemented.
 
 ## Reading Order
 
-1. [current-contract.md](current-contract.md)
-2. [bootstrap-module.md](bootstrap-module.md)
-3. [layer-map.md](layer-map.md)
-4. [node-growth-and-isolation.md](node-growth-and-isolation.md)
-5. [future-fabric-mapping.md](future-fabric-mapping.md)
-6. detailed reference docs as needed
-
-## How To Use This Set
-
-### If You Need Runtime Truth
-
-Start with:
-
-- [current-contract.md](current-contract.md)
-- [../paperclip-hermes-local-contract.md](../paperclip-hermes-local-contract.md)
-- [../company-bootstrap.md](../company-bootstrap.md)
-
-### If You Need The Reusable Bootstrap/Launch Module
-
-Start with:
-
-- [bootstrap-module.md](bootstrap-module.md)
-- [../company-bootstrap.md](../company-bootstrap.md)
-- [../../deploy/vps/INSTALL.md](../../deploy/vps/INSTALL.md)
-
-### If You Need Memory And Isolation Rules
-
-Start with:
-
-- [node-growth-and-isolation.md](node-growth-and-isolation.md)
-- [../honcho-memory-topology.md](../honcho-memory-topology.md)
-- [../reference-node-target.md](../reference-node-target.md)
-
-### If You Need The Larger Vision
-
-Start with:
-
-- [future-fabric-mapping.md](future-fabric-mapping.md)
-
-Then read the north-star/research context:
-
-- [../north-star.md](../north-star.md)
-- `agent-knowledge-exchange/knowledge/research/Self-Hosted Long-Horizon Memory Architecture for Three Hermes-Backed clean.md`
-
-The research note is vision context, not the active contract.
+1. [Current contract](current-contract.md)
+2. [VPS launch and company operation](vps-launch-and-company-operation.md)
+3. [Bootstrap module](bootstrap-module.md)
+4. [Layer map](layer-map.md)
+5. [Node growth and isolation](node-growth-and-isolation.md)
+6. [Future fabric mapping](future-fabric-mapping.md)
+7. Detailed references as needed
 
 ## Three-Layer Frame
 
-The architecture is intentionally split into three layers:
+### 1. Current Contract
 
-### Layer 1: Current Contract
+This is what is proven and should be treated as active operator guidance today.
 
-This is what is proven, documented, and reproducible now.
+The current Paperclip execution path is direct per-company `hermes_local`, with
+company-scoped `HERMES_HOME`, self-hosted Honcho as an additive memory layer,
+and explicit Paperclip issue completion.
 
-### Layer 2: Near-Term Productization
+Start with:
 
-This is the reusable packaging of the proven pieces:
+- [Current contract](current-contract.md)
+- [VPS launch and company operation](vps-launch-and-company-operation.md)
+- [Paperclip hermes_local contract](../paperclip-hermes-local-contract.md)
+- [Company bootstrap](../company-bootstrap.md)
 
-- bootstrap scripts
-- templates
-- manager/worker defaults
-- node bring-up rules
+### 2. Near-Term Productization
 
-### Layer 3: Long-Term Memory Fabric
+This is the reusable module and operational shape that should be hardened into
+repeatable node/company bring-up.
 
-This is the larger future architecture:
+The main productization unit is the direct Paperclip/Hermes company bootstrap
+module.
 
-- alignment log
-- shared graph/vector/artifact rails
-- provider-insulated shared organizational continuity
+Start with:
 
-The key rule is:
+- [VPS launch and company operation](vps-launch-and-company-operation.md)
+- [Bootstrap module](bootstrap-module.md)
+- [Node growth and isolation](node-growth-and-isolation.md)
+- [Reference node target](../reference-node-target.md)
+- [Operator install runbook](../../../deploy/vps/INSTALL.md)
 
-- do not treat Layer 3 vision as if it were already Layer 1 runtime truth
+### 3. Long-Term Memory Fabric
 
-## Detailed Reference Docs
+This is the larger architecture direction: shared continuity, explicit
+promotion, future shared graph/vector layers, and broader role cognition.
 
-Active detailed references:
+These ideas are useful for planning, but they are not the active Paperclip
+execution contract unless a current contract doc says so.
 
-- [../paperclip-hermes-local-contract.md](../paperclip-hermes-local-contract.md)
-- [../company-bootstrap.md](../company-bootstrap.md)
-- [../honcho-memory-topology.md](../honcho-memory-topology.md)
-- [../reference-node-target.md](../reference-node-target.md)
-- [../../deploy/vps/INSTALL.md](../../deploy/vps/INSTALL.md)
+Start with:
 
+- [Layer map](layer-map.md)
+- [Future fabric mapping](future-fabric-mapping.md)
+- [Honcho memory topology](../honcho-memory-topology.md)
+- [North star](../north-star.md)
+
+## Active Reference Docs
+
+Use these for detailed contracts and proof history:
+
+- [Paperclip hermes_local contract](../paperclip-hermes-local-contract.md)
+- [Company bootstrap](../company-bootstrap.md)
+- [VPS launch and company operation](vps-launch-and-company-operation.md)
+- [Honcho memory topology](../honcho-memory-topology.md)
+- [Reference node target](../reference-node-target.md)
+- [Operator install runbook](../../../deploy/vps/INSTALL.md)

@@ -1,48 +1,58 @@
-﻿# Current Proven Contract
+# Current Contract
 
-This is the short statement of what is active and proven now.
+This is the active, proven contract for Paperclip execution through Hermes on
+the current reference node shape.
 
-## Active Execution Contract
+## Active Path
 
-- active execution path: direct per-company hermes_local
-- 1215 Paperclip -> Hermes gateway path: optional/future-state
-- active runtime boundary: company-scoped HERMES_HOME
-- active memory add-on on the proven path: self-hosted Honcho
+- Paperclip runs Hermes directly through per-company `hermes_local`.
+- The Paperclip -> Hermes gateway path is optional/future-state for Paperclip
+  task execution.
+- The active runtime boundary is company-scoped `HERMES_HOME`.
+- No Paperclip company should point at ambient outer Hermes state such as
+  `/root/.hermes`.
 
-## Proven Bootstrap Shapes
+## Memory Contract
 
-- one-agent bootstrap is proven
-- manager/worker bootstrap is proven
-- template-backed bootstrap is proven for:
-  - one-agent
-  - manager-worker
+- Self-hosted Honcho is proven on the active direct path.
+- Honcho is additive; it does not replace Hermes local state under
+  `HERMES_HOME`.
+- The Honcho workspace key is the Paperclip `companyId`.
+- For one-agent bootstrap, the Honcho AI peer is
+  `paperclip-agent-<agent-id>` after agent-aware rendering.
+- In the current manager/worker topology, manager and worker share one
+  company-scoped `HERMES_HOME`, so home-local files such as `honcho.json` are
+  shared and the last agent-aware render can determine the active `aiPeer`.
 
-## Current Isolation Truth
+## Bootstrap Contract
 
-- each company gets its own HERMES_HOME
-- inner Hermes must not use ambient /root/.hermes
-- manager and worker currently share the same company-scoped HERMES_HOME
-- per-agent Hermes homes are not implemented yet
+- One-agent bootstrap is proven.
+- Manager/worker bootstrap is proven.
+- Manager and worker currently share the company-scoped `HERMES_HOME`.
+- The current manager/worker shape is not per-agent Hermes home isolation.
+- Per-agent Hermes homes remain future work.
 
-## Task Lifecycle Contract
+## Issue Execution Contract
 
-- Paperclip is the system of record for issue/task state
-- task completion is explicit
-- the final successful completion action is one PATCH containing:
-  - status: "done"
-  - completion comment
-- Paperclip does not infer completion from process exit alone
+- Paperclip is the system of record for issue state.
+- A successful `hermes_local` process exit does not imply issue completion.
+- Bounded assigned work must end with one run-scoped PATCH containing both:
 
-## Proven Runtime Behaviors
+```json
+{
+  "status": "done",
+  "comment": "DONE: <completion summary>"
+}
+```
 
-- useful comments can land with correct `authorAgentId`
-- createdByRunId attribution works
-- wake-loop regressions on the active direct path were fixed
-- manager/worker delegation and parent/child linkage are proven
+- Completion must carry `Authorization: Bearer $PAPERCLIP_API_KEY`.
+- Completion must carry `X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID`.
+- Comment attribution, `createdByRunId`, and assignment wake-loop fixes are
+  part of the active contract.
 
-## Preferred Next Reference Docs
+## Detailed References
 
-- [bootstrap-module.md](bootstrap-module.md)
-- [../paperclip-hermes-local-contract.md](../paperclip-hermes-local-contract.md)
-- [../company-bootstrap.md](../company-bootstrap.md)
-
+- [Paperclip hermes_local contract](../paperclip-hermes-local-contract.md)
+- [Company bootstrap](../company-bootstrap.md)
+- [Honcho memory topology](../honcho-memory-topology.md)
+- [Reference node target](../reference-node-target.md)

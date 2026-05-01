@@ -1,117 +1,108 @@
-﻿# Layer Map
+# Layer Map
 
-This document makes the three-layer planning frame permanent.
+The architecture is planned in three layers. Keep these layers separate when
+writing docs, planning implementation, or debugging runtime behavior.
 
 ## Layer 1: Current Contract
 
-### Purpose
+Purpose:
 
-State what is proven, documented, and reproducible now.
+- Describe what is proven and active now.
+- Give operators and agents instructions they can safely follow today.
 
-### What Belongs Here
+Current artifacts:
 
-- active direct hermes_local runtime contract
-- company-scoped HERMES_HOME
-- self-hosted Honcho on the active path
-- one-agent bootstrap
-- manager/worker bootstrap
-- comment/wake/completion semantics
+- [Current contract](current-contract.md)
+- [VPS launch and company operation](vps-launch-and-company-operation.md)
+- [Paperclip hermes_local contract](../paperclip-hermes-local-contract.md)
+- [Company bootstrap](../company-bootstrap.md)
+- [Honcho memory topology](../honcho-memory-topology.md)
 
-### What Does Not Belong Here
+Belongs here:
 
-- speculative provider mixes by role
-- future alignment-log architecture
-- unproven gateway-first execution claims
+- Direct per-company `hermes_local`.
+- Company-scoped `HERMES_HOME`.
+- Self-hosted Honcho on the active path.
+- One-agent and manager/worker bootstrap.
+- Explicit issue completion through Paperclip.
 
-### Current Artifacts
+Does not belong here:
 
-- [current-contract.md](current-contract.md)
-- [../paperclip-hermes-local-contract.md](../paperclip-hermes-local-contract.md)
-- [../company-bootstrap.md](../company-bootstrap.md)
-- [../honcho-memory-topology.md](../honcho-memory-topology.md)
-- [../reference-node-target.md](../reference-node-target.md)
+- Gateway-first Paperclip execution.
+- Per-agent Hermes homes.
+- Per-task Honcho session contracts.
+- Shared graph/vector fabric.
 
-### Example
+Example:
 
-“Direct per-company hermes_local is the active execution path” belongs here.
+- A validation issue assigned to a `hermes_local` agent completes with one
+  run-scoped PATCH containing both `status: "done"` and a completion comment.
 
 ## Layer 2: Near-Term Productization
 
-### Purpose
+Purpose:
 
-Reduce the proven runtime into reusable operator-facing modules and workflows.
+- Turn the proven path into repeatable operational modules.
+- Preserve active contracts while making node and company setup easier.
 
-### What Belongs Here
+Current artifacts:
 
-- bootstrap scripts
-- JSON templates
-- manager/worker defaults
-- node bring-up sequencing
-- bounded validation tasks
-- canonical doc layer for operators and agents
+- [VPS launch and company operation](vps-launch-and-company-operation.md)
+- [Bootstrap module](bootstrap-module.md)
+- [Node growth and isolation](node-growth-and-isolation.md)
+- [Reference node target](../reference-node-target.md)
+- [Operator install runbook](../../../deploy/vps/INSTALL.md)
 
-### What Does Not Belong Here
+Belongs here:
 
-- general autonomy frameworks
-- broad multi-node shared-memory fabric
-- provider research treated as active contract
+- Idempotent company bootstrap.
+- Stronger bootstrap verification.
+- Node-addition checklists.
+- Deliberate company migration workflow.
+- Per-agent Hermes homes after they are implemented and proven.
 
-### Current Artifacts
+Does not belong here:
 
-- [bootstrap-module.md](bootstrap-module.md)
-- stack/prototype-local/scripts/bootstrap_paperclip_hermes_company.py
-- stack/prototype-local/templates/
-- [../../deploy/vps/INSTALL.md](../../deploy/vps/INSTALL.md)
+- Treating research concepts as active runtime promises.
+- Silent cross-company memory sharing.
+- Replacing Paperclip as the issue state system of record.
 
-### Example
+Example:
 
-“Use --template-file with one-agent or manager-worker JSON templates” belongs
-here.
+- The bootstrap module prepares company memory, creates agents, renders Honcho
+  config, and proves lifecycle with a bounded task.
 
 ## Layer 3: Long-Term Memory Fabric
 
-### Purpose
+Purpose:
 
-Describe the larger architecture for shared organizational continuity across
-roles, companies, and eventually nodes.
+- Preserve the larger architecture direction without collapsing it into the
+  current implementation.
+- Identify how local/private memory can later promote into shared continuity
+  and learning layers.
 
-### What Belongs Here
+Current artifacts:
 
-- alignment log
-- shared graph/vector/artifact rails
-- provider-swappable role cognition
-- explicit publication/replay contracts
-- broader cross-node continuity
+- [Future fabric mapping](future-fabric-mapping.md)
+- [North star](../north-star.md)
+- [Memory model](../memory-model.md)
+- [Agent knowledge exchange](../agent-knowledge-exchange.md)
 
-### What Does Not Belong Here
+Belongs here:
 
-- active runtime claims that have not been proven
-- bootstrap details that are already solved and local
+- Shared continuity plane.
+- Alignment logs.
+- Shared graph and vector corpus.
+- Explicit promotion from local/private memory into shared knowledge.
+- Provider-swappable role cognition and learning strategy.
 
-### Current Artifacts
+Does not belong here:
 
-- [future-fabric-mapping.md](future-fabric-mapping.md)
-- [../north-star.md](../north-star.md)
-- `agent-knowledge-exchange/knowledge/research/Self-Hosted Long-Horizon Memory Architecture for Three Hermes-Backed clean.md`
+- Operator instructions for the active Paperclip `hermes_local` path.
+- Claims that shared fabric is already implemented.
+- Implicit company or node memory federation.
 
-### Example
+Example:
 
-“Alignment log plus shared graph/vector/artifact stores become the long-horizon
-organizational memory plane” belongs here.
-
-## Why The Separation Matters
-
-Layer separation prevents three common mistakes:
-
-1. treating research vision as if it were already runtime truth
-2. treating bootstrap/productization work as if it were the final architecture
-3. letting future-state components contaminate current operator instructions
-
-## Practical Rule
-
-When writing or reading architecture docs:
-
-- Layer 1 answers: what works now
-- Layer 2 answers: what we are packaging next
-- Layer 3 answers: where the architecture can grow later
-
+- A useful lesson from a company run is promoted deliberately into shared docs or
+  skills instead of being leaked through a shared runtime home.

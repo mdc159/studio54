@@ -1,106 +1,53 @@
-﻿# Future Fabric Mapping
+# Future Fabric Mapping
 
-This document maps the larger research vision into the current proven
-architecture without collapsing them into one.
-
-Use it to distinguish:
-
-- what is active now
-- what current bootstrap/module work directly enables
-- what is still future-state
-
-The research note remains vision context:
-
-- `agent-knowledge-exchange/knowledge/research/Self-Hosted Long-Horizon Memory Architecture for Three Hermes-Backed clean.md`
+This document maps the larger memory-fabric vision onto the current proven
+architecture. It does not restate the whole north-star architecture and does
+not promote future work into the active contract.
 
 ## Already Proven Now
 
-| Idea | Current status | Current artifact |
+| Idea | Current mapping | Contract status |
 | --- | --- | --- |
-| direct hermes_local bootstrap module | Proven | `bootstrap_paperclip_hermes_company.py` |
-| company-scoped local/private runtime memory | Proven | company-scoped HERMES_HOME |
-| self-hosted Honcho as additive long-horizon layer | Proven on active path | honcho.json, host-native Honcho service |
-| explicit Paperclip control-plane ownership | Proven | issue/task/comment/run contract |
-| reusable one-agent and manager/worker bring-up | Proven | bootstrap script + templates |
-| explicit promotion rather than ambient company bleed | Proven design rule | honcho-memory-topology.md |
+| Direct Paperclip/Hermes execution | Per-company `hermes_local` adapter path | Active |
+| Company-scoped local/private memory | Company `HERMES_HOME` under the Paperclip data tree | Active |
+| Self-hosted Honcho | Loopback Honcho used by inner Hermes through generated `honcho.json` | Active |
+| Honcho tenant key | Paperclip `companyId` as workspace | Active |
+| Honcho AI peer | `paperclip-agent-<agent-id>` for one-agent and agent-aware renders; manager/worker currently shares one home-local `honcho.json` | Active with caveat |
+| One-agent bootstrap | Reusable one-agent company bootstrap proof | Active |
+| Manager/worker bootstrap | Reusable manager/worker proof with shared company home | Active with caveat |
+| Paperclip issue state | Explicit final PATCH with `status: "done"` and comment | Active |
 
 ## Directly Enabled By Current Module Work
 
-| Idea | Why current work enables it | Status |
+| Idea | Enabled by | Status |
 | --- | --- | --- |
-| richer company templates | bootstrap interface already exists | Near-term productization |
-| stronger validation harnesses | bounded validation tasks already exist | Near-term productization |
-| explicit node-addition workflows | current node/company isolation rules are documented | Near-term productization |
-| per-task Honcho session mapping | identity and bootstrap discipline are already in place | Next architecture slice |
-| broader reusable topologies | one-agent and manager/worker are already proven | Near-term productization |
+| Reusable deployable company block | `bootstrap_paperclip_hermes_company.py` and templates | Near-term productization |
+| Repeatable local memory preparation | `prepare_paperclip_hermes_home.py` | Near-term productization |
+| Stronger node/company bootstrap command | Proven sequence and JSON summary output | Near-term productization |
+| Per-agent Hermes homes | Current topology exposes the limitation clearly | Future implementation |
+| Per-task Honcho sessions | Paperclip issue IDs provide a natural session key | Future contract |
+| Deliberate company migration | Stable company IDs, homes, and workspaces define what must move | Future workflow |
+| Stronger bootstrap verification | Current proof criteria define acceptance checks | Near-term productization |
 
-## Still Speculative / Future Work
+## Speculative Or Future Work
 
-| Idea | Why it is not current contract |
-| --- | --- |
-| alignment log as canonical cross-company continuity rail | not yet the active operator/runtime contract |
-| shared Neo4j fact graph as organizational memory plane | not yet part of the proven company runtime path |
-| shared Qdrant semantic corpus as organizational memory plane | not yet part of the proven company runtime path |
-| artifact-manifest replay as canonical continuity surface | not yet implemented as active company bootstrap/runtime behavior |
-| provider-swappable role cognition by node/role mix | still strategy/research layer |
-| per-agent Hermes-home isolation inside manager/worker topology | deferred |
-| gateway-first Paperclip execution path as active runtime | not current contract |
+| Idea | Relationship to current system | Contract status |
+| --- | --- | --- |
+| Alignment log | Could record promoted lessons and decisions across runs | Future fabric |
+| Shared graph corpus | Could receive explicitly promoted entities/relationships | Future fabric |
+| Shared vector corpus | Could receive explicitly promoted documents and memories | Future fabric |
+| Provider-swappable role cognition | Strategy layer for role behavior across model/providers | Research/strategy |
+| Gateway-first Paperclip execution | Existing north-star direction, not active Paperclip contract | Future execution path |
+| Cross-company memory fabric | Requires explicit promotion and isolation policy | Future fabric |
+| Learning plane promotion gates | Fits the north-star learning plane | Future product/strategy |
 
-## Explicit Mapping
+## Boundary Statement
 
-### Direct hermes_local Bootstrap Module
+The direct `hermes_local` bootstrap module is a reusable deployable block for
+company-scoped execution. It is not the whole memory fabric.
 
-Map it as:
-
-- reusable deployable block
-- current near-term productization unit
-- substrate that future shared-memory layers can build on
-
-### Company-Scoped Memory Isolation
-
-Map it as:
-
-- current local/private layer
-- active boundary that prevents ambient company bleed
-
-### Self-Hosted Honcho
-
-Map it as:
-
-- current additive long-horizon layer
-- not a replacement for Hermes local memory
-
-### Alignment Log / Shared Graph / Shared Vector Corpus
-
-Map them as:
-
-- long-term memory fabric
-- not current active operator/runtime contract
-
-### Provider-Swappable Role Cognition
-
-Map it as:
-
-- research/strategy layer
-- not current runtime truth
-
-## Practical Reading Rule
-
-If an idea changes:
-
-- bootstrap inputs
-- current company lifecycle
-- direct hermes_local runtime semantics
-- operator runbook steps
-
-then it must first be stated in the active contract docs before it can be
-treated as Layer 1 truth.
-
-If it only changes:
-
-- future shared continuity design
-- provider strategy by host role
-- future shared-memory publication/replay behavior
-
-then it belongs in the future-fabric layer until proven.
-
+Company-scoped `HERMES_HOME` is the current local/private layer. Self-hosted
+Honcho is the current additive long-horizon layer. Alignment logs, shared graph,
+shared vector corpus, and provider-swappable cognition remain future-state until
+they have implementation, runtime contracts, and proofs comparable to the
+current Paperclip/Hermes/Honcho path.
