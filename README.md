@@ -1,101 +1,169 @@
-# 1215-vps
+# Studio54 Bootstrap
 
-`1215-vps` is being rebuilt as a prototype-first, architecture-driven system.
-It is an autonomous, multi-surface business stack grown from a single local
-prototype into a hardened VPS hub and, eventually, a multi-node topology.
+Studio54 Bootstrap is a self-contained baseline for bringing up an integrated
+Hermes Agent, Paperclip company, and private local-AI service node.
 
-The system centers on:
+The repo is designed to seed a repeatable installation that can run on its own
+as a single useful VPS, or act as one node in a larger multi-node deployment.
+Each node can carry a specific role, such as orchestration, media generation,
+workflow automation, memory, observability, or development/testing.
 
-- a shared **continuity plane** (broker + Postgres) as system of record
-- **`n8n`** as the trusted workflow nervous system
-- **Open WebUI** as the primary human-facing shell
-- **Paperclip** as the specialist orchestration surface
-- **Hermes** as a host-native execution runtime behind a gateway boundary
-- **ComfyUI** as the first specialist worker (media generation via `n8n`)
+This is not just a mirror of upstream projects. The repo owns the bootstrap
+contract: how the services are assembled, how Hermes and Paperclip work
+together, how traces are correlated, how private operator access is exposed,
+and how a node can be reproduced.
 
-Implementation strategy:
+## What This Repo Boots
 
-1. Build the **local prototype** as the first concrete node implementation.
-2. Use that prototype to validate the continuity contracts and node pattern.
-3. Promote the validated architecture into the hardened **VPS hub**.
+The current node shape combines:
 
-## Architecture Review Pack
+- **Paperclip** as the company and issue orchestration surface.
+- **Hermes Agent** as the execution runtime for Paperclip-local agents.
+- **`hermes_local`** as the active direct Paperclip-to-Hermes execution path.
+- **Langfuse** as the downstream observability service for model-call traces.
+- **Open WebUI** as a human-facing AI surface.
+- **n8n** and **n8n-mcp** for workflow automation and structured workflow
+  access.
+- **ComfyUI** as the local media-generation worker.
+- **Postgres, Valkey, MinIO, ClickHouse, Qdrant, and Neo4j** as the durable
+  substrate services inherited from the local-AI packaged stack and adapted
+  into this node model.
+- **Broker API** as the repo-owned continuity/event plane for future
+  cross-service and cross-node coordination.
 
-The full design lives in `docs/architecture/`. Read these in order:
+The active Paperclip execution contract is direct per-company `hermes_local`.
+The current `main` branch already carries run ID correlation between
+Paperclip, Hermes, and Langfuse. A separate integration branch, PR #5, is being
+reviewed to incorporate the fuller Langfuse traceability knowledge, including
+prompt/output capture policy and the expanded operator documentation.
 
-1. [`north-star.md`](docs/architecture/north-star.md) — target architecture.
-2. [`current-state.md`](docs/architecture/current-state.md) — factual snapshot
-   of what is in this repository today.
-3. [`roadmap.md`](docs/architecture/roadmap.md) — ordered phases that close
-   the gap between current state and north star.
-4. [`execution-plan.md`](docs/architecture/execution-plan.md) — the concrete,
-   commit-by-commit execution plan for a working session.
-5. [`node-roles.md`](docs/architecture/node-roles.md) — node responsibilities
-   and promotion policy across VPS, prototype, engineering, and research nodes.
-6. [`overview.md`](docs/architecture/overview.md) — legacy reference only
-   (carries a deprecation banner; superseded by the four documents above).
+## Why It Exists
+
+The purpose of this repo is to make a private AI company node repeatable.
+
+The intended outcome is:
+
+1. Start from a fresh VPS or local Linux machine.
+2. Project the repo-owned environment contract.
+3. Bring up the service substrate.
+4. Bootstrap a Paperclip company with Hermes-capable agents.
+5. Observe model behavior and failures through Langfuse.
+6. Reuse the same pattern for additional nodes with different roles.
+
+The repo should give future operators and agents a known baseline instead of a
+collection of one-off setup notes.
 
 ## Current Status
 
-- Branch: **`proto`**. `main` is the stable reference.
-- Phase 0 (branch hygiene + trim + plan alignment) is complete.
-- The prototype is **not** fully assembled yet: Honcho, the Hermes gateway,
-  the `orchestrator-ceo` profile, the Paperclip container, and the unified
-  launch script all land in later phases (A → H) defined in `roadmap.md` and
-  executed per `execution-plan.md`.
-- Local bringup instructions live in
-  [`stack/prototype-local/README.md`](stack/prototype-local/README.md).
-- The canonical operator control file is now
-  [`.env.example`](/home/mdc159/projects/company/studio54/.env.example).
-  The compose stack still consumes `stack/prototype-local/.env` today, but the
-  root env is the intended first-stop control surface.
-- The first projection step from root env to stack env is
-  [project_root_env.py](/home/mdc159/projects/company/studio54/stack/prototype-local/scripts/project_root_env.py).
-- VM rehearsal notes live at
-  [deploy/vm/README.md](/home/mdc159/projects/company/studio54/deploy/vm/README.md).
+The current proven target is a private-first node:
 
-If you are a fresh agent session, start at
-[`docs/architecture/execution-plan.md`](docs/architecture/execution-plan.md)
-and follow the **Session Kickoff** block verbatim.
+- app services bind to loopback on the node
+- operator access is private, normally through Tailscale
+- Paperclip runs as a containerized app-plane service
+- Hermes for Paperclip tasks runs inside the Paperclip execution environment
+- outer/operator Hermes remains separate from Paperclip-internal Hermes runs
+- Langfuse metadata tracing is available for OpenAI-compatible Hermes model
+  calls
+- fuller Langfuse content capture and traceability documentation are pending in
+  PR #5
+
+PR #5 is the clean Langfuse traceability integration branch. It supersedes the
+stale `langfuse-sidecar` PR and is intended to merge the additional Langfuse
+knowledge into `main` after the broader Hermes/Paperclip confidence gate
+completes.
 
 ## Repo Layout
 
-| Path | Contents |
+| Path | Purpose |
 |---|---|
-| `docs/architecture/` | Review pack: north-star, current-state, roadmap, execution-plan, node-roles (+ legacy overview). |
-| `stack/prototype-local/` | Local-node Docker Compose stack and bringup scripts (the only runnable target today). |
-| `stack/broker/` | Broker FastAPI service source (the continuity plane API). |
+| `docs/architecture/` | Canonical architecture, contracts, runbooks, current state, and integration notes. |
+| `stack/prototype-local/` | Main Docker Compose substrate and bootstrap scripts for the node. |
+| `stack/broker/` | Repo-owned broker API service for continuity/event coordination. |
 | `stack/sql/` | Broker schema migrations. |
-| `stack/topology/` | Repo-owned target, service, and role manifests. |
-| `stack/roles/` | Per-role Docker Compose overlays (scaffolded; partially populated). |
-| `stack/control/` | Control-plane CLI (`start-1215`). Phase H rebuilds this as `bin/1215`. |
-| `stack/services/` | (Reserved for Phase B–D: Honcho + Hermes gateway host-native units.) |
-| `modules/` | Upstream source submodules referenced by the prototype. |
-| `claude-memory-compiler/` | Reference submodule (memory compiler; not wired into runtime). |
+| `stack/topology/` | Service, target, and role declarations for repeatable node composition. |
+| `stack/roles/` | Role-specific compose overlays for future specialized nodes. |
+| `deploy/vps/` | VPS installation and operator runbook material. |
+| `modules/` | Upstream modules used by the bootstrap: Paperclip, Hermes, Honcho, local-ai-packaged, n8n-mcp, and learning/eval references. |
+| `agent-knowledge-exchange/` | Shared operational knowledge and skills used around the node. |
 
-## Control CLI (current)
+## Important Docs
 
-Until Phase H lands `bin/1215`, the control CLI is invoked directly via
-`uv`:
+Start here:
 
-```bash
-cd stack/control
-uv sync
-uv run start-1215 doctor
-uv run start-1215 targets
-uv run start-1215 services --target prototype-local
-uv run start-1215 docs
-```
+- [Reference Node Target](docs/architecture/reference-node-target.md) explains
+  the correct private-first node shape.
+- [Current State](docs/architecture/current-state.md) records what is actually
+  in the repo today.
+- [Paperclip `hermes_local` Contract](docs/architecture/paperclip-hermes-local-contract.md)
+  defines how Paperclip runs Hermes directly.
+- [Company Bootstrap](docs/architecture/company-bootstrap.md) explains the
+  repeatable Paperclip company setup.
+- [VPS Install Runbook](deploy/vps/INSTALL.md) is the operator-oriented setup
+  path.
 
-These commands validate prerequisites and expose the topology manifests;
-they do **not** bring up services yet. Bringup lives in
-`stack/prototype-local/scripts/setup_hermes_honcho_paperclip.py` and
-`docker-compose.substrate.yml` today, and will be subsumed by
-`./bin/1215 up` in Phase H.
+The fuller Langfuse integration narrative and traceability contract are pending
+in PR #5. Until that branch merges, use [Current State](docs/architecture/current-state.md)
+and [Paperclip `hermes_local` Contract](docs/architecture/paperclip-hermes-local-contract.md)
+as the canonical docs on `main`.
 
-## Upstream Module References
+Historical or aspirational design docs still exist, but the reference-node and
+contract docs above are the practical starting point for current work.
 
-Declared in [`.gitmodules`](.gitmodules):
+## Bootstrap Shape
+
+At a high level, a node is prepared by:
+
+1. Cloning this repo onto the target machine.
+2. Creating the root `.env` from `.env.example`.
+3. Projecting root env values into the stack-local env.
+4. Starting the Docker Compose substrate under `stack/prototype-local/`.
+5. Preparing Paperclip's embedded Hermes runtime.
+6. Creating a Paperclip company and one or more `hermes_local` agents.
+7. Running a validation issue through Paperclip and confirming run correlation.
+
+The concrete command sequence lives in [deploy/vps/INSTALL.md](deploy/vps/INSTALL.md)
+and the helper scripts under `stack/prototype-local/scripts/`.
+
+## Traceability Direction
+
+On the active direct `hermes_local` path, one run ID is intended to link the
+stack:
+
+- `PAPERCLIP_RUN_ID`
+- `HERMES_RUN_ID`
+- `LANGFUSE_TRACE_ID`
+
+On `main`, this correlation exists for the active Paperclip/Hermes path and
+Langfuse metadata-only tracing. PR #5 is the branch that incorporates the full
+traceability work: OpenAI-compatible request messages as Langfuse generation
+input, final assistant text as generation output, content-capture controls,
+truncation metadata, and operator run-record expectations.
+
+Langfuse is downstream observability. It is not the source of truth for task
+state, approvals, company state, artifacts, or memory. Paperclip owns company
+and issue state. Hermes owns runtime execution. Langfuse records what happened
+inside model calls so debugging, evaluation, and later learning workflows have
+evidence.
+
+## Multi-Node Direction
+
+The repeatable node is the unit of growth. A single VPS can run the full
+baseline stack. A larger deployment can split responsibilities across nodes:
+
+- orchestration and company operations
+- media generation
+- workflow automation
+- retrieval and memory services
+- observability and evaluation
+- development or test nodes
+
+The role and topology manifests under `stack/topology/` and `stack/roles/`
+exist to make that split explicit over time. Today, the reference node remains
+the primary proven unit.
+
+## Upstream Modules
+
+The repo carries upstream projects as modules and integration inputs:
 
 - `modules/local-ai-packaged`
 - `modules/hermes-agent`
@@ -106,4 +174,18 @@ Declared in [`.gitmodules`](.gitmodules):
 - `modules/honcho`
 - `modules/n8n-mcp`
 
-These are reference-only — the prototype does not fork or vendor them.
+Studio54 Bootstrap is responsible for how these pieces are assembled into a
+working node. Upstream modules remain their own projects; this repo defines the
+deployment, contracts, and operational glue.
+
+## Current Cleanup Goal
+
+The immediate cleanup goal is to merge PR #5, the Langfuse traceability branch,
+into one canonical branch after the broader Hermes/Paperclip test gate passes,
+then retire stale sidecar state.
+
+That should leave:
+
+- one current `main`
+- one clear Paperclip/Hermes/Langfuse traceability contract
+- one repeatable bootstrap baseline for future nodes
