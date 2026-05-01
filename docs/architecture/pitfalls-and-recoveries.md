@@ -499,17 +499,19 @@ envelope:
 
 Even for a single event.
 
-### G.5 Content capture is intentional but bounded
+### G.5 Raw content capture must be explicit
 
 **Symptom.** Metadata-only traces were not enough to debug model behavior or
-build useful eval examples from private development runs.
+build useful eval examples from private development runs. But raw request
+messages can include system prompts, tool outputs, terminal output, logs, or
+accidentally pasted secrets, and truncation alone is not redaction.
 
 **Fix.** Hermes captures OpenAI-compatible request messages as Langfuse
-generation `input` and final assistant text as generation `output` on the
-private self-hosted stack. Operators can disable capture with
-`LANGFUSE_CAPTURE_CONTENT=false`. `LANGFUSE_CONTENT_MAX_CHARS` defaults to
-`32768`, and truncation is recorded in observation metadata. See
-[Langfuse Traceability](langfuse-traceability.md).
+generation `input` and final assistant text as generation `output` only when
+`LANGFUSE_CAPTURE_CONTENT=true`. `LANGFUSE_CONTENT_MAX_CHARS` defaults to
+`32768`, and truncation is recorded in observation metadata. Live or prod-like
+runs should leave raw capture disabled unless redaction and fake-secret canary
+checks are in place. See [Langfuse Traceability](langfuse-traceability.md).
 
 ---
 

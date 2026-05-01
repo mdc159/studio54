@@ -5938,7 +5938,7 @@ class AIAgent:
                 except Exception:
                     pass
 
-        def _call_chat_completions():
+        def _call_chat_completions(stream_attempt: int = 1):
             """Stream a chat completions response."""
             import httpx as _httpx
             # Per-provider / per-model request_timeout_seconds (from config.yaml)
@@ -6142,12 +6142,38 @@ class AIAgent:
                     if hasattr(chunk, "usage") and chunk.usage:
                         usage_obj = chunk.usage
             except Exception as exc:
-                probe.finish(status="error", error=exc)
+                partial_content = "".join(content_parts) or None
+                probe.finish(
+                    status="error",
+                    error=exc,
+                    output=partial_content,
+                    metadata={
+                        "partial_output": bool(partial_content),
+                        "finish_reason": "error",
+                        "stream_attempt": stream_attempt,
+                    },
+                )
                 raise
 
             # Build mock response matching non-streaming shape
             full_content = "".join(content_parts) or None
-            probe.finish(status="success", output=full_content)
+            was_interrupted = bool(self._interrupt_requested)
+            probe.finish(
+                status="error" if was_interrupted else "success",
+                output=full_content,
+                metadata={
+                    "partial_output": was_interrupted and bool(full_content),
+                    "finish_reason": "interrupted" if was_interrupted else "completed",
+                    "stream_attempt": stream_attempt,
+                },
+                error=(
+                    InterruptedError("Agent interrupted during streaming API call")
+                    if was_interrupted
+                    else None
+                ),
+            )
+            if was_interrupted:
+                raise InterruptedError("Agent interrupted during streaming API call")
             mock_tool_calls = None
             has_truncated_tool_args = False
             if tool_calls_acc:
@@ -6262,7 +6288,9 @@ class AIAgent:
                             self._try_refresh_anthropic_client_credentials()
                             result["response"] = _call_anthropic()
                         else:
-                            result["response"] = _call_chat_completions()
+                            result["response"] = _call_chat_completions(
+                                stream_attempt=_stream_attempt + 1
+                            )
                         return  # success
                     except Exception as e:
                         if deltas_were_sent["yes"]:

@@ -224,15 +224,15 @@ Explicit list of things referenced by `north-star.md` but absent today:
   that wrap the broker API as callable Hermes skills. The broker API is
   reachable but no agent currently calls it as a skill.
 - **Langfuse model-call tracing** — private caller-side tracing is repo-owned
-  in Hermes for OpenAI-compatible chat completions. On the Paperclip
-  `hermes_local` path, the Paperclip run ID is passed through as
+  in Hermes for OpenAI-compatible chat completions on the active direct
+  `hermes_local` path. The Paperclip run ID is passed through as
   `PAPERCLIP_RUN_ID`, `HERMES_RUN_ID`, and `LANGFUSE_TRACE_ID`, so the
-  Langfuse trace ID equals the Paperclip run ID. Prompt/output capture is
-  intentionally enabled for the private self-hosted stack, with
-  `LANGFUSE_CAPTURE_CONTENT=false` as the kill switch. The canonical operator
-  contract is [Langfuse Traceability](langfuse-traceability.md), and the
-  integration narrative is
-  [Langfuse Integration Status](langfuse-integration-status.md).
+  Langfuse trace ID equals the Paperclip run ID. Raw prompt/output capture is
+  explicit opt-in with `LANGFUSE_CAPTURE_CONTENT=true`; it is not enabled by
+  default. This is not full system-wide observability or the completed Phase G
+  gateway/broker/Hermes architecture. The canonical operator contract is
+  [Langfuse Traceability](langfuse-traceability.md), and the integration
+  narrative is [Langfuse Integration Status](langfuse-integration-status.md).
 - **`vps-hub` compose implementation** — the target is declared with 15
   services but `compose_files` is empty.
 - **Node manifest for this machine** — no live `nodes/<this-host>/` entry

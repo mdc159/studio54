@@ -193,7 +193,9 @@ For Langfuse lookup, use the same Paperclip run ID. On the direct
 trace ID. See [Langfuse Traceability](langfuse-traceability.md) for capture
 policy and trace-record expectations, and
 [Langfuse Integration Status](langfuse-integration-status.md) for the broader
-cleanup plan and benefits.
+cleanup plan and benefits. The current Langfuse work covers direct
+`hermes_local` OpenAI-compatible model-call tracing only; it is not full
+Paperclip API, gateway, broker, tool-call, n8n, Honcho, or artifact tracing.
 
 ## Known Observed Failure Modes
 

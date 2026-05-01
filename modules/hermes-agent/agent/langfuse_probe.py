@@ -53,7 +53,7 @@ def _env_first(*names: str) -> str:
 
 def _capture_content_enabled() -> bool:
     value = os.getenv("LANGFUSE_CAPTURE_CONTENT", "").strip().lower()
-    return value not in {"0", "false", "no", "off"}
+    return value in {"1", "true", "yes", "on"}
 
 
 def _content_max_chars() -> int:
@@ -126,12 +126,18 @@ class LangfuseGenerationProbe:
         status: str,
         error: BaseException | None = None,
         output: Any | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Emit a generation observation, swallowing all ingestion failures."""
         if not self._enabled:
             return
         try:
-            self._finish(status=status, error=error, output=output)
+            self._finish(
+                status=status,
+                error=error,
+                output=output,
+                extra_metadata=metadata,
+            )
         except Exception as exc:  # noqa: BLE001 - tracing must never fail a run.
             logger.warning("langfuse probe failed: %s", exc)
 
@@ -141,6 +147,7 @@ class LangfuseGenerationProbe:
         status: str,
         error: BaseException | None,
         output: Any | None,
+        extra_metadata: dict[str, Any] | None,
     ) -> None:
         end_iso = _utcnow_iso()
         metadata: dict[str, Any] = {
@@ -168,6 +175,8 @@ class LangfuseGenerationProbe:
             metadata["session_id"] = self.session_id
         if error is not None:
             metadata["error_class"] = error.__class__.__name__
+        if extra_metadata:
+            metadata.update(extra_metadata)
 
         trace_body: dict[str, Any] = {
             "id": str(uuid.uuid4()),

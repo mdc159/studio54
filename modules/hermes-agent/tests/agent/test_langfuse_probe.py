@@ -74,8 +74,8 @@ def test_langfuse_probe_emits_conservative_generation_metadata(monkeypatch):
     assert observation["body"]["traceId"] == "trace-123"
     assert observation["body"]["type"] == "GENERATION"
     assert observation["body"]["name"] == "openai.chat.completions"
-    assert observation["body"]["input"] == messages
-    assert observation["body"]["output"] == "hi there"
+    assert "input" not in observation["body"]
+    assert "output" not in observation["body"]
 
     metadata = observation["body"]["metadata"]
     assert metadata["provider"] == "openrouter"
@@ -88,7 +88,7 @@ def test_langfuse_probe_emits_conservative_generation_metadata(monkeypatch):
     assert metadata["paperclip_company_id"] == "company-123"
     assert metadata["paperclip_agent_id"] == "agent-123"
     assert metadata["paperclip_task_id"] == "task-123"
-    assert metadata["content_capture_enabled"] is True
+    assert metadata["content_capture_enabled"] is False
     assert "latency_ms" in metadata
 
 
@@ -117,14 +117,53 @@ def _probe_trace_id() -> str:
     ).trace_id
 
 
-def test_langfuse_probe_omits_content_when_capture_disabled(monkeypatch):
+def test_langfuse_probe_captures_content_when_explicitly_enabled(monkeypatch):
     sent = []
     monkeypatch.setenv("LANGFUSE_HOST", "http://127.0.0.1:3000")
     monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-test")
     monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-test")
-    monkeypatch.setenv("LANGFUSE_CAPTURE_CONTENT", "false")
+    monkeypatch.setenv("LANGFUSE_CAPTURE_CONTENT", "true")
     monkeypatch.setattr(langfuse_probe, "_send_ingestion", lambda events: sent.append(events))
 
+    messages = [{"role": "user", "content": "prompt"}]
+    probe = langfuse_probe.LangfuseGenerationProbe(
+        provider="openrouter",
+        model="model",
+        base_url="https://example.test/v1",
+        streaming=False,
+        input=messages,
+    )
+    probe.finish(status="success", output="assistant output")
+
+    observation = sent[0][1]["body"]
+    assert observation["input"] == messages
+    assert observation["output"] == "assistant output"
+    assert observation["metadata"]["content_capture_enabled"] is True
+
+
+def test_langfuse_probe_omits_content_by_default_and_when_disabled(monkeypatch):
+    sent = []
+    monkeypatch.setenv("LANGFUSE_HOST", "http://127.0.0.1:3000")
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-test")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-test")
+    monkeypatch.setattr(langfuse_probe, "_send_ingestion", lambda events: sent.append(events))
+
+    probe = langfuse_probe.LangfuseGenerationProbe(
+        provider="openrouter",
+        model="model",
+        base_url="https://example.test/v1",
+        streaming=False,
+        input=[{"role": "user", "content": "secret prompt"}],
+    )
+    probe.finish(status="success", output="secret output")
+
+    observation = sent[0][1]["body"]
+    assert "input" not in observation
+    assert "output" not in observation
+    assert observation["metadata"]["content_capture_enabled"] is False
+
+    sent.clear()
+    monkeypatch.setenv("LANGFUSE_CAPTURE_CONTENT", "false")
     probe = langfuse_probe.LangfuseGenerationProbe(
         provider="openrouter",
         model="model",
@@ -145,6 +184,7 @@ def test_langfuse_probe_truncates_content_and_records_metadata(monkeypatch):
     monkeypatch.setenv("LANGFUSE_HOST", "http://127.0.0.1:3000")
     monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-test")
     monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-test")
+    monkeypatch.setenv("LANGFUSE_CAPTURE_CONTENT", "true")
     monkeypatch.setenv("LANGFUSE_CONTENT_MAX_CHARS", "10")
     monkeypatch.setattr(langfuse_probe, "_send_ingestion", lambda events: sent.append(events))
 
@@ -165,6 +205,37 @@ def test_langfuse_probe_truncates_content_and_records_metadata(monkeypatch):
     assert metadata["output_truncated"] is True
     assert metadata["input_max_chars"] == 10
     assert metadata["output_max_chars"] == 10
+
+
+def test_langfuse_probe_records_stream_partial_metadata(monkeypatch):
+    sent = []
+    monkeypatch.setenv("LANGFUSE_HOST", "http://127.0.0.1:3000")
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-test")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-test")
+    monkeypatch.setattr(langfuse_probe, "_send_ingestion", lambda events: sent.append(events))
+
+    probe = langfuse_probe.LangfuseGenerationProbe(
+        provider="openrouter",
+        model="model",
+        base_url="https://example.test/v1",
+        streaming=True,
+    )
+    probe.finish(
+        status="error",
+        error=RuntimeError("stream failed"),
+        output="partial text",
+        metadata={
+            "partial_output": True,
+            "finish_reason": "error",
+            "stream_attempt": 2,
+        },
+    )
+
+    metadata = sent[0][1]["body"]["metadata"]
+    assert metadata["partial_output"] is True
+    assert metadata["finish_reason"] == "error"
+    assert metadata["stream_attempt"] == 2
+    assert metadata["error_class"] == "RuntimeError"
 
 
 def test_langfuse_ingestion_swallow_network_errors(monkeypatch):
