@@ -100,6 +100,9 @@ Start here:
   repeatable Paperclip company setup.
 - [Remote Persona Grid](docs/architecture/remote-persona-grid.md) defines the
   Donna-controlled SSH/tmux grid for remote Hermes personas such as Victoria.
+- [Full Operation Roadmap](docs/architecture/full-operation-roadmap.md) lays out
+  the path from validated agents to real work with Donna, Victoria,
+  Android/Termux, Nikolai, Paperclip, and the audit ledgers.
 - [VPS Install Runbook](deploy/vps/INSTALL.md) is the operator-oriented setup
   path.
 
