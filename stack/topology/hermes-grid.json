@@ -19,6 +19,12 @@
       "notes": "Blocked until Victoria-only readiness passes."
     },
     {
+      "name": "Android",
+      "enabled": false,
+      "kind": "pending-mobile-edge",
+      "notes": "High-priority mobile edge candidate. Blocked until SSH/Termux transport, wrapper, tmux/session policy, power/network behavior, and safety contract are discovered."
+    },
+    {
       "name": "WSL",
       "enabled": false,
       "kind": "pending",
@@ -27,8 +33,8 @@
     {
       "name": "Termux",
       "enabled": false,
-      "kind": "pending",
-      "notes": "Blocked until Victoria-only readiness passes."
+      "kind": "pending-mobile-edge",
+      "notes": "Android/Termux runtime candidate. Blocked until phone-local Hermes, SSH server, tmux/session wrapper, and battery/network constraints are documented."
     }
   ]
 }

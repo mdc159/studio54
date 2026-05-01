@@ -88,7 +88,7 @@ def collect_checks(
     if other_enabled:
         checks.append(_check("FAIL", "expansion_block", f"unexpected enabled tabs: {', '.join(other_enabled)}"))
     else:
-        checks.append(_check("PASS", "expansion_block", "Nikolai/WSL/Termux are not enabled"))
+        checks.append(_check("PASS", "expansion_block", "Nikolai/Android/WSL/Termux are not enabled"))
 
     command = victoria.get("command") if isinstance(victoria, dict) else None
     if command == EXPECTED_VICTORIA_COMMAND:
@@ -162,7 +162,7 @@ def format_checks(checks: Sequence[Check]) -> str:
     lines.append("")
     lines.append("Dry-run launch summary:")
     lines.append(f"  Victoria: {EXPECTED_VICTORIA_COMMAND}")
-    lines.append("  Nikolai/WSL/Termux: disabled pending Victoria-only pass")
+    lines.append("  Nikolai/Android/WSL/Termux: disabled pending Victoria-only pass")
     return "\n".join(lines)
 
 

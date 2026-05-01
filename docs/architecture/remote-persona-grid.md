@@ -21,7 +21,7 @@ probe, roster, status, and explicit attach surfaces for the operator grid.
   remote execution.
 - `./bin/hermes-grid status` exposes the local hub readiness and sound-off
   contract without remote execution.
-- `Nikolai`, `WSL`, and `Termux` remain disabled/pending until the
+- `Nikolai`, `Android`, `WSL`, and `Termux` remain disabled/pending until the
   Victoria-only runtime attach path is proven boring and repeatable.
 
 ## Architectural Position
@@ -204,7 +204,7 @@ flowchart LR
         F1["Mosh protocol"]
         F2["moshi-hook"]
         F3["Telegram approvals"]
-        F4["Nikolai / WSL / Termux"]
+        F4["Nikolai / Android / WSL / Termux"]
     end
 
     HumanPlane --> OperatorPlane
@@ -245,6 +245,7 @@ Victoria is the only enabled remote tab:
 Other planned tabs remain disabled/pending:
 
 - `Nikolai`
+- `Android`
 - `WSL`
 - `Termux`
 
@@ -355,7 +356,7 @@ The default check should:
 
 1. parse the topology manifest;
 2. verify `Victoria` is the only enabled remote tab;
-3. verify Nikolai/WSL/Termux remain disabled or pending;
+3. verify Nikolai/Android/WSL/Termux remain disabled or pending;
 4. verify Victoria's command is the approved attach contract;
 5. verify local SSH and tmux are available;
 6. verify the SSH alias is configured without printing host/IP/key material;
@@ -468,6 +469,7 @@ stateDiagram-v2
     RuntimeAttachMode --> ExpandPersonas: after Victoria-only stability
 
     ExpandPersonas --> Nikolai
+    ExpandPersonas --> Android
     ExpandPersonas --> WSL
     ExpandPersonas --> Termux
 
@@ -546,8 +548,12 @@ Before enabling another persona tab, the following must be true:
 6. the new persona has its own documented transport contract, wrapper, tmux
    session/window, and safety boundaries.
 
-Nikolai, WSL, and Termux should be added one at a time, each with check-mode
-coverage before runtime attach behavior.
+Nikolai, Android, WSL, and Termux should be added one at a time, each with
+check-mode discovery, probe-mode evidence, dry-run attach validation, and explicit
+approval before enablement. Android/Termux are mobile-edge candidates and must
+also document SSH server behavior, Termux/Hermes availability, tmux/session
+policy, battery/network constraints, and wake/reconnect expectations before any
+live attach is attempted.
 
 ## Relationship To Paperclip
 
@@ -581,6 +587,8 @@ Deferred until explicit approval:
 
 - runtime launch/attach mode for `hermes-grid`;
 - Nikolai tab enablement;
+- Android/Termux mobile-edge discovery and disabled topology refinement;
+- Android tab enablement;
 - WSL tab enablement;
 - Termux tab enablement;
 - Mosh protocol setup;

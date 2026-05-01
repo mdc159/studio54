@@ -15,7 +15,7 @@ def test_hermes_grid_check_lists_victoria_only(capsys) -> None:
     assert "Studio54 hermes-grid readiness check" in out
     assert "PASS victoria_tab" in out
     assert "ssh victoria -t victoria-attach" in out
-    assert "Nikolai/WSL/Termux: disabled" in out
+    assert "Nikolai/Android/WSL/Termux: disabled" in out
 
 
 def test_collect_checks_sanitizes_ssh_alias_details() -> None:
@@ -132,7 +132,8 @@ def test_roster_prints_donna_hub_and_tab_states(capsys) -> None:
     assert "Donna: role=hub status=operator-control-plane" in out
     assert "Victoria: enabled kind=remote-ssh-tmux" in out
     assert "Nikolai: disabled kind=pending" in out
-    assert "Termux: disabled kind=pending" in out
+    assert "Android: disabled kind=pending-mobile-edge" in out
+    assert "Termux: disabled kind=pending-mobile-edge" in out
     assert "hostname=" not in out
 
 
@@ -141,6 +142,7 @@ def test_status_prints_sound_off_contract_without_remote_execution(capsys) -> No
     out = capsys.readouterr().out
     assert "Studio54 hermes-grid status" in out
     assert "Donna hub: READY" in out
+    assert "Pending tabs: Nikolai, Android, WSL, Termux" in out
     assert "Sound-off contract:" in out
     for field in ["outcome", "confirmed", "changed", "validation", "safety", "next_action"]:
         assert field in out
