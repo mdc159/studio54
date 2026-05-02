@@ -10,19 +10,22 @@ probe, roster, status, and explicit attach surfaces for the operator grid.
 
 ## Current Status
 
-- `Victoria` is the first validated remote persona tab.
+- `Victoria` is the first validated remote cloud persona tab.
+- `Nikolai` is the first validated WSL workstation persona tab and is enabled
+  for explicit operator live attach only.
 - `./bin/hermes-grid --check` exists as a read-only readiness mode.
 - `./bin/hermes-grid --check --probe-remote` exists as an explicit, bounded
   remote probe.
 - `./bin/hermes-grid attach <tab>` exists as explicit operator runtime attach mode.
-- `./bin/hermes-grid attach Victoria --dry-run` prints the runtime attach plan
-  without executing it.
+- `./bin/hermes-grid attach Victoria --dry-run` and
+  `./bin/hermes-grid attach Nikolai --dry-run` print runtime attach plans
+  without executing them.
 - `./bin/hermes-grid roster` exposes the local Donna/Studio54 hub roster without
   remote execution.
 - `./bin/hermes-grid status` exposes the local hub readiness and sound-off
   contract without remote execution.
-- `Nikolai`, `Android`, `WSL`, and `Termux` remain disabled/pending until the
-  Victoria-only runtime attach path is proven boring and repeatable.
+- `Android`, `WSL`, and `Termux` remain disabled/pending until their own
+  discovery, check, probe, and explicit enablement gates pass.
 
 ## Architectural Position
 

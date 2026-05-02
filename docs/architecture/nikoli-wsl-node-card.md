@@ -1,8 +1,8 @@
 # Nikoli WSL Workstation Node Card
 
-> **Status:** validated direct-control smoke; Studio54 check/probe support is
-> landing while live attach/topology enablement remains blocked pending explicit
-> approval.
+> **Status:** validated direct-control smoke; Studio54 check/probe support and
+> explicit operator live attach are enabled. Paperclip/company autonomy, GPU
+> workloads, and delegated engineering missions remain separate approval gates.
 >
 > **Safety note:** this document is intentionally redacted. Do not add Tailnet
 > IPs, public IPs, invite tokens, private key paths, `.env` values, raw logs, or
@@ -40,8 +40,9 @@ role: WSL workstation / GPU-capable engineering persona
 control_plane: Donna / Studio54
 node_class: wsl-workstation-persona
 transport: tailscale-ssh
-status: validated-direct-control-smoke
-topology_enabled: false
+status: live-attach-enabled-explicit-operator-only
+topology_enabled: true
+paperclip_company_autonomy: false
 ```
 
 Nikoli is best suited for bounded local engineering work:
@@ -153,8 +154,10 @@ Current boundaries:
 - no raw Tailnet IPs in docs or ledgers;
 - no `.env`, private keys, auth tokens, invite URLs, raw logs, or session DBs;
 - no GPU jobs without explicit task scope;
-- no Studio54 live attach/topology enablement until check/probe support passes
-  and Miguel explicitly approves enablement;
+- Studio54 live attach is enabled only for explicit operator commands after
+  check/probe support and Miguel's separate approval; it is not Paperclip
+  company autonomy, prompt injection, automatic session creation, or delegated
+  engineering authority;
 - bounded one-line task envelopes for direct control;
 - no prompt injection into arbitrary shells or panes.
 
