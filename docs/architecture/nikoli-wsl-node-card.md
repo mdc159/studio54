@@ -167,6 +167,7 @@ Keep Nikoli visible but disabled while grid support proves the path:
   "name": "Nikolai",
   "enabled": false,
   "kind": "wsl-workstation-persona",
+  "command": "ssh nikoli -t ~/.local/bin/nikolai-attach",
   "ssh_alias": "nikoli",
   "expected_tmux_session": "nikolai-hermes",
   "expected_window_label": "Nikolai",

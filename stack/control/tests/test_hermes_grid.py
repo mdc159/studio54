@@ -15,7 +15,7 @@ def test_hermes_grid_check_lists_victoria_only(capsys) -> None:
     assert "Studio54 hermes-grid readiness check" in out
     assert "PASS victoria_tab" in out
     assert "ssh victoria -t victoria-attach" in out
-    assert "Nikolai: ssh nikoli -t nikolai-attach" in out
+    assert "Nikolai: ssh nikoli -t ~/.local/bin/nikolai-attach" in out
     assert "disabled until explicit enablement" in out
 
 
@@ -88,7 +88,7 @@ def test_nikoli_metadata_is_checked_without_enabling_topology() -> None:
     assert "disabled" in nikoli_tab.detail
     assert "wsl-workstation-persona" in nikoli_tab.detail
     assert nikoli_attach.status == "PASS"
-    assert "ssh nikoli -t nikolai-attach" in nikoli_attach.detail
+    assert "ssh nikoli -t ~/.local/bin/nikolai-attach" in nikoli_attach.detail
 
 
 def test_nikoli_probe_is_explicit_and_redacted() -> None:
