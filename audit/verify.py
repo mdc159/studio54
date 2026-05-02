@@ -29,6 +29,52 @@ def resolve_doc(claim: Claim, repo_root: Path) -> str | None:
     return "\n".join(lines[lo:hi])
 
 
+GREP_GLOBS = ("*.yml", "*.yaml", "*.toml", "*.env", "*.py", "*.sh", "Makefile")
+
+
+def _grep(pattern: str, root: Path) -> str | None:
+    """Run a grep search; return up to 5 matching lines."""
+    try:
+        result = subprocess.run(
+            ["grep", "-rIn", "--include=*.yml", "--include=*.yaml",
+             "--include=*.toml", "--include=*.env", "--include=*.py",
+             "--include=*.sh", "--include=Makefile",
+             "-e", pattern, str(root)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return None
+    lines = [l for l in result.stdout.splitlines() if l.strip()][:5]
+    return "\n".join(lines) if lines else None
+
+
+def resolve_code(claim: Claim, repo_root: Path) -> str | None:
+    """Type-dispatched probe of the codebase."""
+    if claim.probe:
+        try:
+            r = subprocess.run(
+                claim.probe, shell=True, capture_output=True, text=True,
+                timeout=20, cwd=repo_root,
+            )
+            return (r.stdout + r.stderr).strip() or None
+        except subprocess.TimeoutExpired:
+            return "PROBE_TIMEOUT"
+    st = (claim.subtype or "").lower()
+    val = claim.expected_value
+    if st in ("port", "container_port", "host_port"):
+        return _grep(str(val), repo_root)
+    if st in ("path", "file_path"):
+        target = repo_root / str(val)
+        return f"path exists: {target}" if target.exists() else f"path missing: {target}"
+    if st in ("env_var", "config_key"):
+        return _grep(str(val), repo_root)
+    if st in ("command", "command_name", "service_name", "container_name"):
+        return _grep(str(val), repo_root)
+    return None
+
+
 def main() -> int:
     raise SystemExit(0)
 
