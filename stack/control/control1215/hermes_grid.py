@@ -14,7 +14,7 @@ from .topology import resolve_paths
 
 GRID_CONFIG = "hermes-grid.json"
 EXPECTED_VICTORIA_COMMAND = "ssh victoria -t victoria-attach"
-EXPECTED_NIKOLI_COMMAND = "ssh nikoli -t nikolai-attach"
+EXPECTED_NIKOLI_COMMAND = "ssh nikoli -t ~/.local/bin/nikolai-attach"
 
 
 @dataclass(frozen=True)
