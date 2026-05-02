@@ -14,6 +14,7 @@ from .topology import resolve_paths
 
 GRID_CONFIG = "hermes-grid.json"
 EXPECTED_VICTORIA_COMMAND = "ssh victoria -t victoria-attach"
+EXPECTED_NIKOLI_COMMAND = "ssh nikoli -t nikolai-attach"
 
 
 @dataclass(frozen=True)
@@ -54,6 +55,30 @@ def _ssh_alias_detail(ssh_fields: dict[str, str]) -> str:
     )
 
 
+def _ssh_config_fields(stdout: str) -> dict[str, str]:
+    fields: dict[str, str] = {}
+    for line in stdout.splitlines():
+        if " " not in line:
+            continue
+        key, value = line.split(" ", 1)
+        if key in {"hostname", "user", "port"}:
+            fields[key] = value
+    return fields
+
+
+def _probe_script(tab: dict) -> str:
+    session = shlex.quote(str(tab.get("expected_tmux_session", "")))
+    window = shlex.quote(str(tab.get("expected_window_label", "")))
+    fallback = shlex.quote(str(tab.get("fallback_command", "")))
+    return " && ".join(
+        [
+            f"([ -x \"$HOME/.local/bin/{str(tab.get('fallback_command', ''))}\" ] || command -v {fallback} >/dev/null)",
+            f"tmux has-session -t {session}",
+            f"tmux list-windows -t {session} -F '#{{window_name}}' | grep -Fx {window} >/dev/null",
+        ]
+    )
+
+
 def collect_checks(
     *,
     probe_remote: bool = False,
@@ -76,6 +101,7 @@ def collect_checks(
     tabs = config.get("tabs", [])
     enabled = [tab for tab in tabs if tab.get("enabled")]
     victoria = next((tab for tab in tabs if tab.get("name") == "Victoria"), None)
+    nikoli = next((tab for tab in tabs if tab.get("name") == "Nikolai"), None)
 
     if victoria is None:
         checks.append(_check("FAIL", "victoria_tab", "missing Victoria tab definition"))
@@ -96,6 +122,21 @@ def collect_checks(
     else:
         checks.append(_check("FAIL", "victoria_command", f"expected {EXPECTED_VICTORIA_COMMAND!r}, got {command!r}"))
 
+    if nikoli is None:
+        checks.append(_check("FAIL", "nikoli_tab", "missing Nikolai tab definition"))
+    elif nikoli.get("enabled"):
+        checks.append(_check("FAIL", "nikoli_tab", "Nikolai must remain disabled until explicit enablement"))
+    elif nikoli.get("kind") != "wsl-workstation-persona":
+        checks.append(_check("FAIL", "nikoli_tab", f"expected wsl-workstation-persona, got {nikoli.get('kind')!r}"))
+    else:
+        checks.append(_check("PASS", "nikoli_tab", "Nikolai disabled kind=wsl-workstation-persona"))
+
+    nikoli_command = nikoli.get("command") if isinstance(nikoli, dict) else None
+    if nikoli_command == EXPECTED_NIKOLI_COMMAND:
+        checks.append(_check("PASS", "nikoli_attach_plan", nikoli_command))
+    else:
+        checks.append(_check("FAIL", "nikoli_attach_plan", f"expected {EXPECTED_NIKOLI_COMMAND!r}, got {nikoli_command!r}"))
+
     ssh_path = which("ssh")
     if ssh_path:
         checks.append(_check("PASS", "ssh_binary", "ssh available"))
@@ -112,26 +153,33 @@ def collect_checks(
         alias = str(victoria.get("ssh_alias", "victoria")) if isinstance(victoria, dict) else "victoria"
         result = _run(["ssh", "-G", alias], runner)
         if result.returncode == 0:
-            ssh_fields = {}
-            for line in result.stdout.splitlines():
-                if " " not in line:
-                    continue
-                key, value = line.split(" ", 1)
-                if key in {"hostname", "user", "port"}:
-                    ssh_fields[key] = value
             checks.append(
                 _check(
                     "PASS",
                     "ssh_alias",
-                    _ssh_alias_detail(ssh_fields),
+                    _ssh_alias_detail(_ssh_config_fields(result.stdout)),
                 )
             )
         else:
             checks.append(_check("WARN", "ssh_alias", "ssh alias 'victoria' is not resolvable in this environment"))
 
+        nikoli_alias = str(nikoli.get("ssh_alias", "nikoli")) if isinstance(nikoli, dict) else "nikoli"
+        result = _run(["ssh", "-G", nikoli_alias], runner)
+        if result.returncode == 0:
+            checks.append(
+                _check(
+                    "PASS",
+                    "nikoli_ssh_alias",
+                    _ssh_alias_detail(_ssh_config_fields(result.stdout)),
+                )
+            )
+        else:
+            checks.append(_check("WARN", "nikoli_ssh_alias", "ssh alias 'nikoli' is not resolvable in this environment"))
+
     if probe_remote:
         if not ssh_path:
             checks.append(_check("WARN", "remote_probe", "skipped: ssh unavailable"))
+            checks.append(_check("WARN", "nikoli_remote_probe", "skipped: ssh unavailable"))
         else:
             result = _run(
                 [
@@ -149,8 +197,27 @@ def collect_checks(
                 checks.append(_check("PASS", "remote_probe", "victoria-attach exists and victoria-hermes tmux session exists"))
             else:
                 checks.append(_check("WARN", "remote_probe", "remote probe did not pass; attach flow may still work interactively"))
+
+            nikoli_alias = str(nikoli.get("ssh_alias", "nikoli")) if isinstance(nikoli, dict) else "nikoli"
+            result = _run(
+                [
+                    "ssh",
+                    "-o",
+                    "BatchMode=yes",
+                    "-o",
+                    "ConnectTimeout=8",
+                    nikoli_alias,
+                    _probe_script(nikoli or {}),
+                ],
+                runner,
+            )
+            if result.returncode == 0:
+                checks.append(_check("PASS", "nikoli_remote_probe", "Nikolai attach wrapper and tmux/Hermes markers present"))
+            else:
+                checks.append(_check("WARN", "nikoli_remote_probe", "Nikolai WSL probe did not pass; topology remains disabled"))
     else:
         checks.append(_check("PASS", "remote_probe", "skipped by default; use --probe-remote for non-interactive SSH check"))
+        checks.append(_check("PASS", "nikoli_remote_probe", "skipped by default; use --probe-remote for WSL workstation SSH check"))
 
     return checks
 
@@ -162,7 +229,8 @@ def format_checks(checks: Sequence[Check]) -> str:
     lines.append("")
     lines.append("Dry-run launch summary:")
     lines.append(f"  Victoria: {EXPECTED_VICTORIA_COMMAND}")
-    lines.append("  Nikolai/Android/WSL/Termux: disabled pending Victoria-only pass")
+    lines.append(f"  Nikolai: {EXPECTED_NIKOLI_COMMAND} (blocked; disabled until explicit enablement)")
+    lines.append("  Android/WSL/Termux: disabled pending readiness gates")
     return "\n".join(lines)
 
 

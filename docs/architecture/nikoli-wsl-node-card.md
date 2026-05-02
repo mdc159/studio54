@@ -1,7 +1,8 @@
 # Nikoli WSL Workstation Node Card
 
-> **Status:** validated direct-control smoke; keep disabled in topology until
-> Studio54 check/probe/dry-run support lands.
+> **Status:** validated direct-control smoke; Studio54 check/probe support is
+> landing while live attach/topology enablement remains blocked pending explicit
+> approval.
 >
 > **Safety note:** this document is intentionally redacted. Do not add Tailnet
 > IPs, public IPs, invite tokens, private key paths, `.env` values, raw logs, or
@@ -152,13 +153,14 @@ Current boundaries:
 - no raw Tailnet IPs in docs or ledgers;
 - no `.env`, private keys, auth tokens, invite URLs, raw logs, or session DBs;
 - no GPU jobs without explicit task scope;
-- no Studio54 topology enablement until check/probe/dry-run support exists;
+- no Studio54 live attach/topology enablement until check/probe support passes
+  and Miguel explicitly approves enablement;
 - bounded one-line task envelopes for direct control;
 - no prompt injection into arbitrary shells or panes.
 
 ## Studio54 Topology Recommendation
 
-Keep Nikoli visible but disabled until grid support lands:
+Keep Nikoli visible but disabled while grid support proves the path:
 
 ```json
 {
@@ -168,19 +170,19 @@ Keep Nikoli visible but disabled until grid support lands:
   "ssh_alias": "nikoli",
   "expected_tmux_session": "nikolai-hermes",
   "expected_window_label": "Nikolai",
-  "notes": "Validated via Donna -> Tailscale SSH -> WSL tmux/Hermes smoke. Keep disabled until check/probe/dry-run support is implemented."
+  "notes": "Validated via Donna -> Tailscale SSH -> WSL tmux/Hermes smoke. Keep disabled until check/probe support passes and explicit enablement is approved."
 }
 ```
 
 ## Next Steps
 
-1. Add Studio54 `hermes-grid` support for a disabled WSL workstation persona
-   contract.
-2. Add a non-mutating probe for `nikoli` that checks SSH, tmux session/window,
-   Hermes presence, and GPU visibility metadata only.
-3. Add dry-run attach output for Nikoli while still refusing live attach unless
-   explicitly enabled.
+1. Run `./bin/hermes-grid --check` to verify Nikoli remains visible but
+   disabled.
+2. Run `./bin/hermes-grid --check --probe-remote` to verify non-mutating
+   SSH/tmux/Hermes markers for Victoria and Nikoli.
+3. Keep `./bin/hermes-grid attach Nikolai --dry-run` blocked while the tab is
+   disabled; live attach remains a separate explicit enablement phase.
 4. Record the WSL workstation archetype beside the cloud VPS and mobile-edge
    archetypes.
-5. Revoke any leaked Tailscale/admin invite or auth material from the admin
-   console before treating the environment as fully clean.
+5. Next implementation gate: an explicit enablement PR only after Miguel
+   approves live operator attach for Nikoli.

@@ -15,8 +15,13 @@
     {
       "name": "Nikolai",
       "enabled": false,
-      "kind": "pending",
-      "notes": "Blocked until Victoria-only readiness passes."
+      "kind": "wsl-workstation-persona",
+      "command": "ssh nikoli -t nikolai-attach",
+      "ssh_alias": "nikoli",
+      "expected_tmux_session": "nikolai-hermes",
+      "expected_window_label": "Nikolai",
+      "fallback_command": "nikolai-hermes-session",
+      "notes": "Validated WSL workstation/GPU-capable engineering persona candidate. Keep disabled until explicit enablement after check/probe/dry-run gates pass."
     },
     {
       "name": "Android",
