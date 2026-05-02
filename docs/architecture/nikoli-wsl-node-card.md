@@ -160,30 +160,35 @@ Current boundaries:
 
 ## Studio54 Topology Recommendation
 
-Keep Nikoli visible but disabled while grid support proves the path:
+Nikoli has passed the separate live-attach decision gate. Keep him visible and
+attach-enabled for explicit operator commands only; do not treat attach as prompt
+injection, automatic session creation, GPU workload authorization, or Paperclip
+company autonomy.
 
 ```json
 {
   "name": "Nikolai",
-  "enabled": false,
+  "enabled": true,
   "kind": "wsl-workstation-persona",
+  "attach_mode": "ssh-tmux",
   "command": "ssh nikoli -t ~/.local/bin/nikolai-attach",
   "ssh_alias": "nikoli",
   "expected_tmux_session": "nikolai-hermes",
   "expected_window_label": "Nikolai",
-  "notes": "Validated via Donna -> Tailscale SSH -> WSL tmux/Hermes smoke. Keep disabled until check/probe support passes and explicit enablement is approved."
+  "notes": "Validated via Donna -> Tailscale SSH -> WSL tmux/Hermes smoke. Live attach is enabled only for explicit operator attach; Paperclip/company autonomy and GPU workloads remain separate gates."
 }
 ```
 
 ## Next Steps
 
-1. Run `./bin/hermes-grid --check` to verify Nikoli remains visible but
-   disabled.
+1. Run `./bin/hermes-grid --check` to verify Victoria and Nikoli are the only
+   enabled tabs while Android/WSL/Termux remain pending.
 2. Run `./bin/hermes-grid --check --probe-remote` to verify non-mutating
    SSH/tmux/Hermes markers for Victoria and Nikoli.
-3. Keep `./bin/hermes-grid attach Nikolai --dry-run` blocked while the tab is
-   disabled; live attach remains a separate explicit enablement phase.
+3. Use `./bin/hermes-grid attach Nikolai --dry-run` for the safe attach plan,
+   and `./bin/hermes-grid attach Nikolai` only as an explicit operator command.
 4. Record the WSL workstation archetype beside the cloud VPS and mobile-edge
    archetypes.
-5. Next implementation gate: an explicit enablement PR only after Miguel
-   approves live operator attach for Nikoli.
+5. Next implementation gate: Nikoli Paperclip/company charter, GPU workload
+   policy, or delegated engineering mission only after Miguel explicitly
+   approves that higher-level operating scope.

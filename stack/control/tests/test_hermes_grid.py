@@ -16,7 +16,7 @@ def test_hermes_grid_check_lists_victoria_only(capsys) -> None:
     assert "PASS victoria_tab" in out
     assert "ssh victoria -t victoria-attach" in out
     assert "Nikolai: ssh nikoli -t ~/.local/bin/nikolai-attach" in out
-    assert "disabled until explicit enablement" in out
+    assert "enabled; explicit operator attach only" in out
 
 
 def test_collect_checks_sanitizes_ssh_alias_details() -> None:
@@ -75,7 +75,7 @@ def test_remote_probe_can_run_non_interactive_check() -> None:
     assert any("BatchMode=yes" in call for call in calls)
 
 
-def test_nikoli_metadata_is_checked_without_enabling_topology() -> None:
+def test_nikoli_metadata_is_checked_after_explicit_live_attach_enablement() -> None:
     checks = hermes_grid.collect_checks(
         runner=lambda *args, **kwargs: _completed("hostname nikoli-wsl\nuser mdc159\nport 22\n"),
         which=lambda name: f"/usr/bin/{name}" if name in {"ssh", "tmux"} else None,
@@ -85,8 +85,9 @@ def test_nikoli_metadata_is_checked_without_enabling_topology() -> None:
     nikoli_attach = next(check for check in checks if check.name == "nikoli_attach_plan")
 
     assert nikoli_tab.status == "PASS"
-    assert "disabled" in nikoli_tab.detail
+    assert "enabled" in nikoli_tab.detail
     assert "wsl-workstation-persona" in nikoli_tab.detail
+    assert "attach_mode=ssh-tmux" in nikoli_tab.detail
     assert nikoli_attach.status == "PASS"
     assert "ssh nikoli -t ~/.local/bin/nikolai-attach" in nikoli_attach.detail
 
@@ -130,13 +131,13 @@ def test_attach_refuses_disabled_tabs_without_running_command(capsys) -> None:
         calls.append(args)
         return 0
 
-    exit_code = hermes_grid.attach_tab("Nikolai", attach_runner=fake_attach_runner)
+    exit_code = hermes_grid.attach_tab("Android", attach_runner=fake_attach_runner)
 
     out = capsys.readouterr().out
     assert exit_code == 1
     assert calls == []
     assert "disabled" in out
-    assert "Nikolai" in out
+    assert "Android" in out
 
 
 def test_attach_dry_run_prints_generic_runtime_plan_without_executing(capsys) -> None:
@@ -170,6 +171,30 @@ def test_attach_executes_enabled_tab_command_only_when_explicit() -> None:
     assert calls == [["ssh", "victoria", "-t", "victoria-attach"]]
 
 
+def test_attach_supports_enabled_nikoli_wsl_attach_mode(capsys) -> None:
+    calls = []
+
+    def fake_attach_runner(args):
+        calls.append(args)
+        return 0
+
+    exit_code = hermes_grid.attach_tab("Nikolai", dry_run=True, attach_runner=fake_attach_runner)
+
+    out = capsys.readouterr().out
+    assert exit_code == 0
+    assert calls == []
+    assert "tab=Nikolai" in out
+    assert "kind=wsl-workstation-persona" in out
+    assert "attach_mode=ssh-tmux" in out
+    assert "ssh nikoli" in out
+    assert "nikolai-attach" in out
+
+    exit_code = hermes_grid.attach_tab("Nikolai", attach_runner=fake_attach_runner)
+
+    assert exit_code == 0
+    assert calls == [["ssh", "nikoli", "-t", "~/.local/bin/nikolai-attach"]]
+
+
 def test_roster_prints_donna_hub_and_tab_states(capsys) -> None:
     assert hermes_grid.main(["roster"]) == 0
     out = capsys.readouterr().out
@@ -177,7 +202,7 @@ def test_roster_prints_donna_hub_and_tab_states(capsys) -> None:
     assert "Hub: Studio54 / Donna" in out
     assert "Donna: role=hub status=operator-control-plane" in out
     assert "Victoria: enabled kind=remote-ssh-tmux" in out
-    assert "Nikolai: disabled kind=wsl-workstation-persona" in out
+    assert "Nikolai: enabled kind=wsl-workstation-persona" in out
     assert "Android: disabled kind=pending-mobile-edge" in out
     assert "Termux: disabled kind=pending-mobile-edge" in out
     assert "hostname=" not in out
@@ -188,7 +213,8 @@ def test_status_prints_sound_off_contract_without_remote_execution(capsys) -> No
     out = capsys.readouterr().out
     assert "Studio54 hermes-grid status" in out
     assert "Donna hub: READY" in out
-    assert "Pending tabs: Nikolai, Android, WSL, Termux" in out
+    assert "Enabled tabs: Victoria, Nikolai" in out
+    assert "Pending tabs: Android, WSL, Termux" in out
     assert "Sound-off contract:" in out
     for field in ["outcome", "confirmed", "changed", "validation", "safety", "next_action"]:
         assert field in out

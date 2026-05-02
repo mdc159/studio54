@@ -14,8 +14,9 @@
     },
     {
       "name": "Nikolai",
-      "enabled": false,
+      "enabled": true,
       "kind": "wsl-workstation-persona",
+      "attach_mode": "ssh-tmux",
       "command": "ssh nikoli -t ~/.local/bin/nikolai-attach",
       "ssh_alias": "nikoli",
       "expected_tmux_session": "nikolai-hermes",

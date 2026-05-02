@@ -110,11 +110,12 @@ def collect_checks(
     else:
         checks.append(_check("PASS", "victoria_tab", "Victoria is the only intended enabled remote tab"))
 
-    other_enabled = [tab.get("name", "<unnamed>") for tab in enabled if tab.get("name") != "Victoria"]
+    allowed_enabled = {"Victoria", "Nikolai"}
+    other_enabled = [tab.get("name", "<unnamed>") for tab in enabled if tab.get("name") not in allowed_enabled]
     if other_enabled:
         checks.append(_check("FAIL", "expansion_block", f"unexpected enabled tabs: {', '.join(other_enabled)}"))
     else:
-        checks.append(_check("PASS", "expansion_block", "Nikolai/Android/WSL/Termux are not enabled"))
+        checks.append(_check("PASS", "expansion_block", "Victoria and Nikolai are the only enabled tabs; Android/WSL/Termux remain pending"))
 
     command = victoria.get("command") if isinstance(victoria, dict) else None
     if command == EXPECTED_VICTORIA_COMMAND:
@@ -124,12 +125,13 @@ def collect_checks(
 
     if nikoli is None:
         checks.append(_check("FAIL", "nikoli_tab", "missing Nikolai tab definition"))
-    elif nikoli.get("enabled"):
-        checks.append(_check("FAIL", "nikoli_tab", "Nikolai must remain disabled until explicit enablement"))
     elif nikoli.get("kind") != "wsl-workstation-persona":
         checks.append(_check("FAIL", "nikoli_tab", f"expected wsl-workstation-persona, got {nikoli.get('kind')!r}"))
+    elif nikoli.get("attach_mode") != "ssh-tmux":
+        checks.append(_check("FAIL", "nikoli_tab", f"expected attach_mode='ssh-tmux', got {nikoli.get('attach_mode')!r}"))
     else:
-        checks.append(_check("PASS", "nikoli_tab", "Nikolai disabled kind=wsl-workstation-persona"))
+        state = "enabled" if nikoli.get("enabled") else "disabled"
+        checks.append(_check("PASS", "nikoli_tab", f"Nikolai {state} kind=wsl-workstation-persona attach_mode=ssh-tmux"))
 
     nikoli_command = nikoli.get("command") if isinstance(nikoli, dict) else None
     if nikoli_command == EXPECTED_NIKOLI_COMMAND:
@@ -229,7 +231,7 @@ def format_checks(checks: Sequence[Check]) -> str:
     lines.append("")
     lines.append("Dry-run launch summary:")
     lines.append(f"  Victoria: {EXPECTED_VICTORIA_COMMAND}")
-    lines.append(f"  Nikolai: {EXPECTED_NIKOLI_COMMAND} (blocked; disabled until explicit enablement)")
+    lines.append(f"  Nikolai: {EXPECTED_NIKOLI_COMMAND} (enabled; explicit operator attach only)")
     lines.append("  Android/WSL/Termux: disabled pending readiness gates")
     return "\n".join(lines)
 
@@ -303,8 +305,11 @@ def attach_tab(
     if not tab.get("enabled"):
         print(f"FAIL attach: tab {name} is disabled; enable it in topology only after validation")
         return 1
-    if tab.get("kind") != "remote-ssh-tmux":
-        print(f"FAIL attach: tab {name} uses unsupported kind {tab.get('kind')!r}")
+    attach_mode = tab.get("attach_mode", tab.get("kind"))
+    if attach_mode == "remote-ssh-tmux":
+        attach_mode = "ssh-tmux"
+    if attach_mode != "ssh-tmux":
+        print(f"FAIL attach: tab {name} uses unsupported attach mode {attach_mode!r}")
         return 1
 
     command = build_attach_command(name)
@@ -312,6 +317,7 @@ def attach_tab(
     print("Runtime attach plan")
     print(f"  tab={name}")
     print(f"  kind={tab.get('kind')}")
+    print(f"  attach_mode={attach_mode}")
     print(f"  command={command_display}")
     print("  safety=explicit operator attach; no prompt injection; no session creation")
     if dry_run:
