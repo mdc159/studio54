@@ -75,3 +75,50 @@ def test_code_resolver_runs_probe_when_provided(tmp_path: Path) -> None:
     out = resolve_code(claim, repo_root=tmp_path)
     assert out is not None
     assert "hi" in out
+
+
+from audit.verify import resolve_vps
+
+
+def test_vps_resolver_container_count(sample_dump_dict: dict) -> None:
+    claim = Claim(
+        id="c-6", source_file="STATE.md", source_line=1, owner="owned",
+        claim_type="concrete", subtype="container_count",
+        claim_text="2 containers", expected_value=2, verifiable_by=["vps"],
+    )
+    out = resolve_vps(claim, sample_dump_dict)
+    assert "2" in out
+
+
+def test_vps_resolver_container_name(sample_dump_dict: dict) -> None:
+    claim = Claim(
+        id="c-7", source_file="x.md", source_line=1, owner="owned",
+        claim_type="concrete", subtype="container_name",
+        claim_text="n8n is up", expected_value="n8n", verifiable_by=["vps"],
+    )
+    out = resolve_vps(claim, sample_dump_dict)
+    assert "running" in out.lower()
+
+
+def test_vps_resolver_env_var_present(sample_dump_dict: dict) -> None:
+    claim = Claim(
+        id="c-8", source_file="x.md", source_line=1, owner="owned",
+        claim_type="concrete", subtype="env_var",
+        claim_text="postgres port set", expected_value="POSTGRES_PORT",
+        verifiable_by=["vps"],
+    )
+    out = resolve_vps(claim, sample_dump_dict)
+    assert "5432" in out
+
+
+def test_vps_resolver_port_not_in_dump(sample_dump_dict: dict) -> None:
+    claim = Claim(
+        id="c-9", source_file="x.md", source_line=1, owner="owned",
+        claim_type="concrete", subtype="port",
+        claim_text="9999 is listening", expected_value=9999,
+        verifiable_by=["vps"],
+    )
+    out = resolve_vps(claim, sample_dump_dict)
+    # The sample dump has no port 9999 — resolver should say "not seen"
+    assert out is not None
+    assert "9999" in out or "not" in out.lower()

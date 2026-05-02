@@ -75,6 +75,36 @@ def resolve_code(claim: Claim, repo_root: Path) -> str | None:
     return None
 
 
+def resolve_vps(claim: Claim, dump: dict) -> str | None:
+    st = (claim.subtype or "").lower()
+    val = claim.expected_value
+    if st == "container_count":
+        running = [c for c in dump.get("docker_ps", [])
+                   if str(c.get("State", "")).lower() == "running"]
+        return f"{len(running)} containers running"
+    if st in ("container_name",):
+        match = next((c for c in dump.get("docker_ps", [])
+                      if str(c.get("Names", "")) == str(val)), None)
+        if match is None:
+            return f"container {val!r} not found"
+        return f"{match['Names']} is {match.get('State', 'unknown')}"
+    if st in ("env_var", "config_key"):
+        for fname, kv in dump.get("env_files", {}).items():
+            if str(val) in kv:
+                return f"{fname}: {val}={kv[str(val)]}"
+        return f"{val} not present in any env file"
+    if st in ("port",):
+        # Search docker_ps and listening_ports_raw for the port
+        for c in dump.get("docker_ps", []):
+            if str(val) in str(c.get("Ports", "")):
+                return f"port {val} bound by container {c.get('Names')}"
+        ports_raw = dump.get("listening_ports_raw", "") or ""
+        if str(val) in ports_raw:
+            return f"port {val} present in ss output"
+        return f"port {val} not seen in dump"
+    return None
+
+
 def main() -> int:
     raise SystemExit(0)
 
