@@ -1,0 +1,5 @@
+# Sensitive env-var / config-key names to ALWAYS redact, regardless of regex.
+# One key per line. Lines starting with `#` are comments.
+# Populate after running the first dump, by inspecting .audit-local/vps-dump.full.json.
+N8N_OWNER_EMAIL
+OPEN_WEBUI_ADMIN_EMAIL
