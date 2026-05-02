@@ -105,9 +105,63 @@ def resolve_vps(claim: Claim, dump: dict) -> str | None:
     return None
 
 
+def _agrees(text: str | None, expected) -> bool:
+    if text is None or expected is None:
+        return False
+    return str(expected) in text
+
+
+def classify(
+    doc_says: str | None,
+    code_says: str | None,
+    vps_says: str | None,
+    expected,
+) -> tuple[str, str]:
+    d = _agrees(doc_says, expected)
+    c = _agrees(code_says, expected)
+    v = _agrees(vps_says, expected)
+    n_known = sum(x is not None for x in (doc_says, code_says, vps_says))
+    if n_known == 0:
+        return "UNVERIFIABLE", ""
+    if d and c and v:
+        return "MATCH", ""
+    # code and vps agree but doc disagrees → doc is stale
+    if (c and v) and not d and doc_says is not None:
+        return "DRIFT_DOC_STALE", (
+            f"update doc to match: {vps_says or code_says}"
+        )
+    # Need at least 2 resolvers to declare drift
+    if n_known < 2:
+        return "UNVERIFIABLE", "partial_match" if any((d, c, v)) else ""
+    return "DRIFT", f"reconcile sources; vps says: {vps_says or code_says or doc_says}"
+
+
 def main() -> int:
-    raise SystemExit(0)
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--claims", required=True, type=Path)
+    ap.add_argument("--dump", required=True, type=Path)
+    ap.add_argument("--repo-root", default=Path.cwd(), type=Path)
+    ap.add_argument("--out", required=True, type=Path)
+    args = ap.parse_args()
+
+    cs = load_claims(args.claims)
+    dump = json.loads(args.dump.read_text())
+
+    for claim in cs.claims:
+        if claim.status == "pruned":
+            continue
+        claim.doc_says = resolve_doc(claim, args.repo_root) if "doc" in claim.verifiable_by else None
+        claim.code_says = resolve_code(claim, args.repo_root) if "code" in claim.verifiable_by else None
+        claim.vps_says = resolve_vps(claim, dump) if "vps" in claim.verifiable_by else None
+        claim.status, claim.suggested_fix = classify(
+            claim.doc_says, claim.code_says, claim.vps_says, claim.expected_value
+        )
+
+    dump_claims(cs, args.out)
+    n_drift = sum(1 for c in cs.claims if c.status and "DRIFT" in c.status)
+    print(f"Verified {len(cs.claims)} claims, {n_drift} drift(s)", flush=True)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
