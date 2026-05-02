@@ -109,6 +109,9 @@ Start here:
 - [Nikoli Paperclip Catch-up Assessment](docs/architecture/nikoli-paperclip-catchup.md)
   bridges Nikoli's validated live-attach state with the existing Paperclip
   `hermes_local` bootstrap research and sea-base experimentation evidence.
+- [Hermes Agent Backup and Restore Runbook](docs/architecture/hermes-agent-backup-restore-runbook.md)
+  defines the recovery layers for Hermes personas, Honcho memory, Paperclip
+  company-local agents, snapshots, and delegated/forked agent execution modes.
 - [VPS Install Runbook](deploy/vps/INSTALL.md) is the operator-oriented setup
   path.
 
