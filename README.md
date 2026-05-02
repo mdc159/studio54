@@ -106,6 +106,9 @@ Start here:
 - [Nikoli WSL Workstation Node Card](docs/architecture/nikoli-wsl-node-card.md)
   records the validated Donna -> Tailscale SSH -> WSL tmux/Hermes pattern for
   the first workstation persona.
+- [Nikoli Paperclip Catch-up Assessment](docs/architecture/nikoli-paperclip-catchup.md)
+  bridges Nikoli's validated live-attach state with the existing Paperclip
+  `hermes_local` bootstrap research and sea-base experimentation evidence.
 - [VPS Install Runbook](deploy/vps/INSTALL.md) is the operator-oriented setup
   path.
 
