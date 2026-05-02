@@ -52,4 +52,6 @@ def tmp_repo(tmp_path: Path) -> Path:
     (tmp_path / "docs" / "arch.md").write_text("Hermes is tier-0.\n")
     (tmp_path / "modules" / "honcho").mkdir(parents=True)
     (tmp_path / "modules" / "honcho" / "README.md").write_text("Upstream.\n")
+    (tmp_path / "modules" / "honcho" / "internal").mkdir()
+    (tmp_path / "modules" / "honcho" / "internal" / "details.md").write_text("deep")
     return tmp_path

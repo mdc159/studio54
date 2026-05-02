@@ -21,10 +21,23 @@ def classify(rel_path: str) -> str:
     return "owned"  # any other top-level .md is treated as owned
 
 
+def _is_in_scope(rel_parts: tuple[str, ...]) -> bool:
+    """Filter rule:
+    - Skip hidden directories anywhere in the path.
+    - Under modules/, only include top-level READMEs (modules/<x>/README.md).
+    """
+    if any(part.startswith(".") for part in rel_parts):
+        return False
+    if rel_parts and rel_parts[0] == "modules":
+        return len(rel_parts) == 3 and rel_parts[2] == "README.md"
+    return True
+
+
 def build_manifest(root: Path) -> dict:
     entries: list[dict] = []
     for path in sorted(root.rglob("*.md")):
-        if any(part.startswith(".") for part in path.relative_to(root).parts):
+        rel_parts = path.relative_to(root).parts
+        if not _is_in_scope(rel_parts):
             continue
         rel = str(path.relative_to(root))
         entries.append(

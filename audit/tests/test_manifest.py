@@ -50,3 +50,11 @@ def test_manifest_writes_valid_json(tmp_repo: Path, tmp_path: Path) -> None:
     write_manifest(tmp_repo, out)
     loaded = json.loads(out.read_text())
     assert loaded["summary"]["owned"] == 3
+
+
+def test_excludes_deep_module_files(tmp_repo: Path) -> None:
+    m = build_manifest(tmp_repo)
+    paths = [e["path"] for e in m["entries"]]
+    assert "modules/honcho/internal/details.md" not in paths
+    # The top-level README is still included
+    assert "modules/honcho/README.md" in paths
