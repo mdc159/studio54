@@ -67,7 +67,7 @@ def assign_ids(claims: list[dict]) -> None:
         c["id"] = f"c-{i:04d}"
 
 
-def run_subagent(file_path: Path, owner: str, prompt: str) -> list[dict]:
+def run_subagent(file_path: Path, owner: str, prompt: str, timeout: int = 180) -> list[dict]:
     """Invoke `claude --print` on the file content; return parsed claim dicts."""
     content = file_path.read_text(errors="replace")
     user_input = f"# Document: {file_path}\n\n{content}"
@@ -82,7 +82,7 @@ def run_subagent(file_path: Path, owner: str, prompt: str) -> list[dict]:
         ],
         capture_output=True,
         text=True,
-        timeout=180,
+        timeout=timeout,
     )
     if result.returncode != 0:
         print(f"WARN: claude failed for {file_path}: {result.stderr[:500]}",
@@ -98,6 +98,8 @@ def main() -> int:
     ap.add_argument("--concurrency", type=int, default=DEFAULT_CONCURRENCY)
     ap.add_argument("--limit", type=int, default=None,
                     help="Process only the first N files (smoke testing).")
+    ap.add_argument("--timeout", type=int, default=180,
+                    help="Per-subagent timeout in seconds (default: 180).")
     args = ap.parse_args()
 
     prompt = PROMPT_PATH.read_text()
@@ -110,7 +112,7 @@ def main() -> int:
     with ThreadPoolExecutor(max_workers=args.concurrency) as ex:
         futures = {
             ex.submit(run_subagent, Path(manifest["root"]) / e["path"],
-                      e["owner"], prompt): e["path"]
+                      e["owner"], prompt, args.timeout): e["path"]
             for e in entries
         }
         for fut in as_completed(futures):
