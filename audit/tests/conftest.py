@@ -19,8 +19,6 @@ def sample_claim_dict() -> dict:
         "claim_text": "14 containers running, all healthy",
         "expected_value": 14,
         "verifiable_by": ["vps"],
-        "probe": None,
-        "seen_in": [],
     }
 
 
