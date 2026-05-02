@@ -13,6 +13,14 @@ from pathlib import Path
 
 from audit.schema import ClaimSet, load_claims
 
+_REPO_ROOT = str(Path(__file__).parent.parent) + "/"
+
+
+def _rel(path: str) -> str:
+    """Strip absolute repo-root prefix so paths are repo-relative."""
+    return path.removeprefix(_REPO_ROOT)
+
+
 LEDGER_COLUMNS = [
     "id", "source_files", "source_lines", "owner", "claim_type",
     "subtype", "claim_text", "expected_value", "doc_says", "code_says",
@@ -28,7 +36,7 @@ def write_ledger(cs: ClaimSet, out: Path) -> None:
         for c in cs.claims:
             if c.status == "pruned":
                 continue
-            files = [c.source_file, *(c.seen_in or [])]
+            files = [_rel(c.source_file), *(_rel(s) for s in (c.seen_in or []))]
             w.writerow({
                 "id": c.id,
                 "source_files": "; ".join(files),
@@ -51,8 +59,8 @@ def write_summary(cs: ClaimSet, out: Path) -> None:
     active = [c for c in cs.claims if c.status != "pruned"]
     counts = Counter(c.status for c in active)
     drifts = [c for c in active if c.status and "DRIFT" in c.status]
-    drifts.sort(key=lambda c: c.source_file)
-    by_file = Counter(c.source_file for c in drifts)
+    drifts.sort(key=lambda c: _rel(c.source_file))
+    by_file = Counter(_rel(c.source_file) for c in drifts)
     out.parent.mkdir(parents=True, exist_ok=True)
 
     lines: list[str] = []
@@ -66,7 +74,7 @@ def write_summary(cs: ClaimSet, out: Path) -> None:
     lines.append("## Top drifts\n")
     for c in drifts[:10]:
         lines.append(
-            f"- **{c.source_file}:{c.source_line}** ({c.status}) — "
+            f"- **{_rel(c.source_file)}:{c.source_line}** ({c.status}) — "
             f"{c.claim_text} → {c.suggested_fix}"
         )
     lines.append("\n## Drift by source\n")
@@ -75,7 +83,7 @@ def write_summary(cs: ClaimSet, out: Path) -> None:
     lines.append("\n## Suggested fix list (grouped by file)\n")
     fix_by_file: dict[str, list] = {}
     for c in drifts:
-        fix_by_file.setdefault(c.source_file, []).append(c)
+        fix_by_file.setdefault(_rel(c.source_file), []).append(c)
     for src, items in sorted(fix_by_file.items()):
         lines.append(f"### {src}")
         for c in items:

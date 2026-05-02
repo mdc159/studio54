@@ -3,3 +3,4 @@
 # Populate after running the first dump, by inspecting .audit-local/vps-dump.full.json.
 N8N_OWNER_EMAIL
 OPEN_WEBUI_ADMIN_EMAIL
+LANGFUSE_SALT

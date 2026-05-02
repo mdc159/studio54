@@ -42,11 +42,23 @@ def redact_value(key: str, value: str, denylist: set[str]) -> str:
     return value
 
 
+def _redact_env_string(text: str, denylist: set[str]) -> str:
+    """Redact KEY=value patterns in raw strings (e.g. docker_inspect_raw)."""
+    def replace(m: re.Match) -> str:
+        key = m.group(1)
+        if SECRET_NAME_RE.search(key) or key in denylist:
+            return f'"{key}=<REDACTED:{key}>"'
+        return m.group(0)
+    return re.sub(r'"([A-Z_][A-Z0-9_]*)=([^"]*)"', replace, text)
+
+
 def redact_dump(dump: dict, denylist: set[str]) -> dict:
     out = copy.deepcopy(dump)
     env_files = out.get("env_files", {})
     for fname, kv in env_files.items():
         env_files[fname] = {k: redact_value(k, v, denylist) for k, v in kv.items()}
+    if out.get("docker_inspect_raw"):
+        out["docker_inspect_raw"] = _redact_env_string(out["docker_inspect_raw"], denylist)
     return out
 
 

@@ -123,7 +123,9 @@ def classify(
     n_known = sum(x is not None for x in (doc_says, code_says, vps_says))
     if n_known == 0:
         return "UNVERIFIABLE", ""
-    if d and c and v:
+    # MATCH: all active (non-None) resolvers agree with expected_value
+    active_results = [agrees for text, agrees in [(doc_says, d), (code_says, c), (vps_says, v)] if text is not None]
+    if all(active_results):
         return "MATCH", ""
     # code and vps agree but doc disagrees → doc is stale
     if (c and v) and not d and doc_says is not None:
