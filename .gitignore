@@ -34,3 +34,6 @@ supabase/               # upstream start_services.py clones here; we don't commi
 *.env.backup
 stack/**/.env
 stack/**/.env.bak
+
+# Three-way audit (full dumps and draft claims contain secrets)
+.audit-local/

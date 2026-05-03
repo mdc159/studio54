@@ -187,6 +187,16 @@ This single PATCH lets Paperclip persist the terminal issue state and create
 the completion comment with the same run attribution. Paperclip should not infer
 task completion merely from adapter/process success.
 
+For Langfuse lookup, use the same Paperclip run ID. On the direct
+`hermes_local` path, `PAPERCLIP_RUN_ID`, `HERMES_RUN_ID`, and
+`LANGFUSE_TRACE_ID` are the same value, so the Paperclip run ID is the Langfuse
+trace ID. See [Langfuse Traceability](langfuse-traceability.md) for capture
+policy and trace-record expectations, and
+[Langfuse Integration Status](langfuse-integration-status.md) for the broader
+cleanup plan and benefits. The current Langfuse work covers direct
+`hermes_local` OpenAI-compatible model-call tracing only; it is not full
+Paperclip API, gateway, broker, tool-call, n8n, Honcho, or artifact tracing.
+
 ## Known Observed Failure Modes
 
 These were observed during the fresh-node proof work:

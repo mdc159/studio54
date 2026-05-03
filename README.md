@@ -77,6 +77,7 @@ completes.
 | Path | Purpose |
 |---|---|
 | `docs/architecture/` | Canonical architecture, contracts, runbooks, current state, and integration notes. |
+| `docs/audits/` | Three-way doc/code/VPS audits. Latest: [2026-05-01 summary](docs/audits/2026-05-01-three-way/summary.md). |
 | `stack/prototype-local/` | Main Docker Compose substrate and bootstrap scripts for the node. |
 | `stack/broker/` | Repo-owned broker API service for continuity/event coordination. |
 | `stack/sql/` | Broker schema migrations. |
@@ -103,6 +104,12 @@ Start here:
 - [Full Operation Roadmap](docs/architecture/full-operation-roadmap.md) lays out
   the path from validated agents to real work with Donna, Victoria,
   Android/Termux, Nikolai, Paperclip, and the audit ledgers.
+- [Nikoli WSL Workstation Node Card](docs/architecture/nikoli-wsl-node-card.md)
+  records the validated Donna -> Tailscale SSH -> WSL tmux/Hermes pattern for
+  the first workstation persona.
+- [Nikoli Paperclip Catch-up Assessment](docs/architecture/nikoli-paperclip-catchup.md)
+  bridges Nikoli's validated live-attach state with the existing Paperclip
+  `hermes_local` bootstrap research and sea-base experimentation evidence.
 - [VPS Install Runbook](deploy/vps/INSTALL.md) is the operator-oriented setup
   path.
 
@@ -113,6 +120,12 @@ as the canonical docs on `main`.
 
 Historical or aspirational design docs still exist, but the reference-node and
 contract docs above are the practical starting point for current work.
+
+The [2026-05-01 three-way audit](docs/audits/2026-05-01-three-way/summary.md)
+cross-checked 2258 claims extracted from all owned docs against the codebase
+and a live VPS dump. Headline: 690 MATCH, 29 DRIFT, 1539 UNVERIFIABLE.
+See the [ledger](docs/audits/2026-05-01-three-way/ledger.csv) for the full
+per-claim breakdown and suggested fixes.
 
 ## Bootstrap Shape
 

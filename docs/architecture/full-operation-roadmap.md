@@ -4,7 +4,7 @@
 
 **Goal:** Move the available Donna / Victoria / Mobile-Hermes / Studio54 agent stack from validated infrastructure into a practical operating system that can do real work safely.
 
-**Architecture:** Studio54 remains the control-plane and reusable grid pattern. Donna is the hub/queen-bee operator. Victoria is the first enabled remote worker. Android/Termux and Nikolai stay visible but disabled until their own readiness contracts pass. GitHub, Linear, AKE, and Paperclip provide durable work state and audit trails.
+**Architecture:** Studio54 remains the control-plane and reusable grid pattern. Donna is the hub/queen-bee operator. Victoria is the first enabled remote cloud worker. Nikolai is the first enabled WSL workstation persona for explicit operator live attach only. Android/Termux stay visible but disabled until their own readiness contracts pass. GitHub, Linear, AKE, and Paperclip provide durable work state and audit trails.
 
 **Tech Stack:** Hermes Agent, Studio54 `hermes-grid`, SSH, tmux, Tailscale, Moshi iPad app as operator terminal, GitHub PRs/issues, Linear, Agent Knowledge Exchange, Mobile-Hermes, Paperclip, Honcho.
 
@@ -17,7 +17,7 @@
 | Donna / Studio54 | Hub ready | Architecture, planning, PRs, ledgers, grid checks, dispatch decisions | Needs packaged operating cadence and runbook |
 | Victoria | Enabled, validated remote SSH/tmux tab | Remote operations liaison, communications drafts, research, documentation, bounded tasks | Needs work-intake/sound-off routine before heavy production work |
 | Android / Termux / Sam | Visible, disabled `pending-mobile-edge`; SSH readiness path validated | Mobile-edge evidence source and future mobile operator/scout | Must prove persistence, tmux/session policy, and disabled-tab guardrails before topology enablement |
-| Nikolai | Visible, disabled `pending` | Future workstation/GPU/build node | SSH/transport/runtime discovery contract |
+| Nikolai | Enabled for explicit WSL workstation live attach | Workstation/GPU-capable engineering persona, bounded local engineering prep | Needs division/lab charter before Paperclip autonomy or GPU work |
 | Paperclip | Company/task surface | Durable issue/work assignment backbone | Needs clear handoff between Donna grid and Paperclip issues |
 | GitHub / Linear / AKE | Active ledger surfaces | Audit trail, plans, PR state, cross-agent evidence | Needs one canonical status rhythm |
 
@@ -31,8 +31,10 @@ Minimum full-operation baseline:
 2. **Donna can assign work.** Work is represented in GitHub/Linear/Paperclip with an owner, scope, safety line, and expected sound-off.
 3. **Victoria can execute bounded remote tasks.** She receives single-line envelopes, performs scoped work, and reports using the shared sound-off schema.
 4. **Results land durably.** Docs, PRs, issues, and Linear comments capture outcomes without raw runtime dumps or secrets.
-5. **Disabled nodes stay disabled.** Android/Termux/Nikolai do not become live just because they are visible.
-6. **Real work can start now.** Use Donna + Victoria for planning, communications, business operations, research, documentation, and lightweight repo work while mobile/Nikolai readiness matures.
+5. **Disabled nodes stay disabled.** Android/Termux and other candidates do not
+   become live just because they are visible; Nikolai's live attach remains
+   explicit-operator-only and does not grant Paperclip autonomy or GPU scope.
+6. **Real work can start now.** Use Donna + Victoria for planning, communications, business operations, research, documentation, and lightweight repo work while mobile readiness and Nikoli's lab/Paperclip charter mature.
 
 ## Operating Rhythm
 
