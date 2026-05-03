@@ -1,0 +1,22 @@
+# Three-Way Audit Configuration
+
+vps_ssh_target: "user@your-vps-ip"
+
+docs_scope:
+  owned:
+    - "README.md"
+    - "STATE.md"
+    - "docs/**/*.md"
+    - "deploy/**/*.md"
+  upstream:
+    - "modules/**/*.md"
+
+dump_commands:
+  docker_ps: "docker ps -a --format '{{json .}}'"
+  systemctl_user: "systemctl --user list-units --state=running --no-pager"
+  listening_ports: "ss -tlnp"
+  docker_inspect: "for c in \$(docker ps --format '{{.Names}}'); do docker inspect \"\$c\" || true; echo; done"
+
+secrets_denylist:
+  - "N8N_OWNER"
+  - "ADMIN_PASSWORD"
