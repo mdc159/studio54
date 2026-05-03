@@ -1,0 +1,29 @@
+name: VPS bootstrap simulation
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  simulated-vps-bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run simulated VPS bootstrap
+        run: bash scripts/simulate-vps-bootstrap.sh
+      - name: Upload simulation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulated-vps-bootstrap-report
+          path: .artifacts/vps-simulation/
+          if-no-files-found: error
