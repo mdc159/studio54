@@ -4,6 +4,11 @@ set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$ROOT"
 
+# Non-interactive SSH/agent shells often skip profile files, so tools installed
+# by user-level installers (notably uv) can be present but absent from PATH.
+# Normalize the common user-bin locations before declaring a tool missing.
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+
 missing=0
 check_cmd() {
   local name="$1"
