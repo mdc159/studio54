@@ -1,0 +1,356 @@
+{
+  "generated_at": "2026-05-02T06:59:04.677689+00:00",
+  "root": "/home/mdc159/projects/company/studio54",
+  "summary": {
+    "owned": 60,
+    "upstream": 9,
+    "total": 69
+  },
+  "entries": [
+    {
+      "path": "AGENTS.md",
+      "owner": "owned",
+      "size_bytes": 2815
+    },
+    {
+      "path": "README.md",
+      "owner": "owned",
+      "size_bytes": 8106
+    },
+    {
+      "path": "STATE.md",
+      "owner": "owned",
+      "size_bytes": 3109
+    },
+    {
+      "path": "audit/README.md",
+      "owner": "owned",
+      "size_bytes": 1506
+    },
+    {
+      "path": "deploy/vm/README.md",
+      "owner": "owned",
+      "size_bytes": 1862
+    },
+    {
+      "path": "deploy/vps/INSTALL.md",
+      "owner": "owned",
+      "size_bytes": 14783
+    },
+    {
+      "path": "deploy/vps/TEST_NODE_PLAN.md",
+      "owner": "owned",
+      "size_bytes": 6061
+    },
+    {
+      "path": "docs/architecture/agent-knowledge-exchange.md",
+      "owner": "owned",
+      "size_bytes": 3990
+    },
+    {
+      "path": "docs/architecture/canonical/README.md",
+      "owner": "owned",
+      "size_bytes": 2811
+    },
+    {
+      "path": "docs/architecture/canonical/bootstrap-module.md",
+      "owner": "owned",
+      "size_bytes": 5976
+    },
+    {
+      "path": "docs/architecture/canonical/current-contract.md",
+      "owner": "owned",
+      "size_bytes": 2124
+    },
+    {
+      "path": "docs/architecture/canonical/future-fabric-mapping.md",
+      "owner": "owned",
+      "size_bytes": 3347
+    },
+    {
+      "path": "docs/architecture/canonical/layer-map.md",
+      "owner": "owned",
+      "size_bytes": 3221
+    },
+    {
+      "path": "docs/architecture/canonical/node-growth-and-isolation.md",
+      "owner": "owned",
+      "size_bytes": 4325
+    },
+    {
+      "path": "docs/architecture/canonical/vps-launch-and-company-operation.md",
+      "owner": "owned",
+      "size_bytes": 15447
+    },
+    {
+      "path": "docs/architecture/company-bootstrap.md",
+      "owner": "owned",
+      "size_bytes": 9662
+    },
+    {
+      "path": "docs/architecture/current-state.md",
+      "owner": "owned",
+      "size_bytes": 12991
+    },
+    {
+      "path": "docs/architecture/debug.donna-mobile-hermes.md",
+      "owner": "owned",
+      "size_bytes": 17610
+    },
+    {
+      "path": "docs/architecture/donna-vps-service-map.md",
+      "owner": "owned",
+      "size_bytes": 5095
+    },
+    {
+      "path": "docs/architecture/execution-plan.md",
+      "owner": "owned",
+      "size_bytes": 26902
+    },
+    {
+      "path": "docs/architecture/hermes-bootstrap.md",
+      "owner": "owned",
+      "size_bytes": 6442
+    },
+    {
+      "path": "docs/architecture/hermes-runtime.md",
+      "owner": "owned",
+      "size_bytes": 4528
+    },
+    {
+      "path": "docs/architecture/hermes-zero-seed.md",
+      "owner": "owned",
+      "size_bytes": 6785
+    },
+    {
+      "path": "docs/architecture/honcho-memory-topology.md",
+      "owner": "owned",
+      "size_bytes": 16154
+    },
+    {
+      "path": "docs/architecture/langfuse-donna-confidence-gate.md",
+      "owner": "owned",
+      "size_bytes": 16436
+    },
+    {
+      "path": "docs/architecture/langfuse-integration-status.md",
+      "owner": "owned",
+      "size_bytes": 6257
+    },
+    {
+      "path": "docs/architecture/langfuse-traceability.md",
+      "owner": "owned",
+      "size_bytes": 5349
+    },
+    {
+      "path": "docs/architecture/memory-model.md",
+      "owner": "owned",
+      "size_bytes": 10631
+    },
+    {
+      "path": "docs/architecture/node-roles.md",
+      "owner": "owned",
+      "size_bytes": 7592
+    },
+    {
+      "path": "docs/architecture/north-star.md",
+      "owner": "owned",
+      "size_bytes": 13447
+    },
+    {
+      "path": "docs/architecture/operator-init-flow.md",
+      "owner": "owned",
+      "size_bytes": 4410
+    },
+    {
+      "path": "docs/architecture/opus-recomendations.md",
+      "owner": "owned",
+      "size_bytes": 6938
+    },
+    {
+      "path": "docs/architecture/overview.md",
+      "owner": "owned",
+      "size_bytes": 7648
+    },
+    {
+      "path": "docs/architecture/paperclip-hermes-local-contract.md",
+      "owner": "owned",
+      "size_bytes": 13638
+    },
+    {
+      "path": "docs/architecture/pitfalls-and-recoveries.md",
+      "owner": "owned",
+      "size_bytes": 25283
+    },
+    {
+      "path": "docs/architecture/questionaire.md",
+      "owner": "owned",
+      "size_bytes": 0
+    },
+    {
+      "path": "docs/architecture/reference-node-target.md",
+      "owner": "owned",
+      "size_bytes": 6554
+    },
+    {
+      "path": "docs/architecture/roadmap.md",
+      "owner": "owned",
+      "size_bytes": 18149
+    },
+    {
+      "path": "docs/architecture/self-symptoms/2026-04-22-symptoms.md",
+      "owner": "owned",
+      "size_bytes": 19037
+    },
+    {
+      "path": "docs/architecture/self-symptoms/paperclip-runtime.md",
+      "owner": "owned",
+      "size_bytes": 684
+    },
+    {
+      "path": "docs/architecture/system-config-map.md",
+      "owner": "owned",
+      "size_bytes": 7219
+    },
+    {
+      "path": "docs/audits/2026-05-01-three-way/README.md",
+      "owner": "owned",
+      "size_bytes": 591
+    },
+    {
+      "path": "docs/superpowers/plans/2026-05-01-three-way-audit.md",
+      "owner": "owned",
+      "size_bytes": 74567
+    },
+    {
+      "path": "docs/superpowers/specs/2026-05-01-three-way-audit-design.md",
+      "owner": "owned",
+      "size_bytes": 15287
+    },
+    {
+      "path": "modules/autoreason/README.md",
+      "owner": "upstream",
+      "size_bytes": 4769
+    },
+    {
+      "path": "modules/hermes-agent/README.md",
+      "owner": "upstream",
+      "size_bytes": 11377
+    },
+    {
+      "path": "modules/hermes-agent-self-evolution/README.md",
+      "owner": "upstream",
+      "size_bytes": 3561
+    },
+    {
+      "path": "modules/hermes-paperclip-adapter/README.md",
+      "owner": "upstream",
+      "size_bytes": 9378
+    },
+    {
+      "path": "modules/honcho/README.md",
+      "owner": "upstream",
+      "size_bytes": 22267
+    },
+    {
+      "path": "modules/local-ai-packaged/README.md",
+      "owner": "upstream",
+      "size_bytes": 22119
+    },
+    {
+      "path": "modules/n8n-mcp/README.md",
+      "owner": "upstream",
+      "size_bytes": 18374
+    },
+    {
+      "path": "modules/n8n-skills/README.md",
+      "owner": "upstream",
+      "size_bytes": 8720
+    },
+    {
+      "path": "modules/paperclip/README.md",
+      "owner": "upstream",
+      "size_bytes": 15695
+    },
+    {
+      "path": "nodes/linux-prototype/README.md",
+      "owner": "owned",
+      "size_bytes": 784
+    },
+    {
+      "path": "stack/prototype-local/README.md",
+      "owner": "owned",
+      "size_bytes": 24473
+    },
+    {
+      "path": "stack/roles/README.md",
+      "owner": "owned",
+      "size_bytes": 1349
+    },
+    {
+      "path": "stack/services/hermes-gateway/README.md",
+      "owner": "owned",
+      "size_bytes": 1787
+    },
+    {
+      "path": "stack/services/hermes-gateway/skills/continuity-plane/README.md",
+      "owner": "owned",
+      "size_bytes": 2439
+    },
+    {
+      "path": "stack/services/hermes-gateway/skills/continuity-plane/artifact-publish/SKILL.md",
+      "owner": "owned",
+      "size_bytes": 3274
+    },
+    {
+      "path": "stack/services/hermes-gateway/skills/continuity-plane/artifact-read/SKILL.md",
+      "owner": "owned",
+      "size_bytes": 2379
+    },
+    {
+      "path": "stack/services/hermes-gateway/skills/continuity-plane/broadcast-ack/SKILL.md",
+      "owner": "owned",
+      "size_bytes": 2347
+    },
+    {
+      "path": "stack/services/hermes-gateway/skills/continuity-plane/broadcast-publish/SKILL.md",
+      "owner": "owned",
+      "size_bytes": 2695
+    },
+    {
+      "path": "stack/services/hermes-gateway/skills/continuity-plane/broadcast-read-feed/SKILL.md",
+      "owner": "owned",
+      "size_bytes": 1830
+    },
+    {
+      "path": "stack/services/hermes-gateway/skills/hermes-zero/README.md",
+      "owner": "owned",
+      "size_bytes": 2211
+    },
+    {
+      "path": "stack/services/hermes-gateway/skills/hermes-zero/append-file/SKILL.md",
+      "owner": "owned",
+      "size_bytes": 1393
+    },
+    {
+      "path": "stack/services/hermes-gateway/skills/hermes-zero/git-commit/SKILL.md",
+      "owner": "owned",
+      "size_bytes": 1770
+    },
+    {
+      "path": "stack/services/hermes-gateway/skills/hermes-zero/read-file/SKILL.md",
+      "owner": "owned",
+      "size_bytes": 1380
+    },
+    {
+      "path": "stack/services/hermes-gateway/skills/hermes-zero/run-shell/SKILL.md",
+      "owner": "owned",
+      "size_bytes": 2128
+    },
+    {
+      "path": "stack/services/hermes-gateway/skills/hermes-zero/write-file/SKILL.md",
+      "owner": "owned",
+      "size_bytes": 1610
+    }
+  ]
+}
