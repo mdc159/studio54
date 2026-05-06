@@ -122,6 +122,9 @@
     },
     "services": {
       "type": "object",
+      "propertyNames": {
+        "minLength": 1
+      },
       "additionalProperties": {
         "$ref": "#/$defs/serviceStatus"
       },
@@ -208,6 +211,9 @@
         },
         "checks": {
           "type": "object",
+          "propertyNames": {
+            "minLength": 1
+          },
           "additionalProperties": {
             "$ref": "#/$defs/checkStatus"
           },
@@ -226,18 +232,23 @@
         "ids": {
           "type": "object",
           "additionalProperties": false,
+          "minProperties": 1,
           "properties": {
             "paperclipRunId": {
-              "type": "string"
+              "type": "string",
+              "minLength": 1
             },
             "hermesRunId": {
-              "type": "string"
+              "type": "string",
+              "minLength": 1
             },
             "langfuseTraceId": {
-              "type": "string"
+              "type": "string",
+              "minLength": 1
             },
             "paperclipIssueId": {
-              "type": "string"
+              "type": "string",
+              "minLength": 1
             }
           }
         }
