@@ -123,6 +123,7 @@
     "services": {
       "type": "object",
       "propertyNames": {
+        "type": "string",
         "minLength": 1
       },
       "additionalProperties": {
@@ -212,6 +213,7 @@
         "checks": {
           "type": "object",
           "propertyNames": {
+            "type": "string",
             "minLength": 1
           },
           "additionalProperties": {
