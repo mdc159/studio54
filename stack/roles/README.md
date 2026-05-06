@@ -32,4 +32,4 @@ The first concrete role fragments now exist:
 - `tools`: tags the authoring/debugging surface from a dedicated role fragment
 
 These fragments are selected through `stack/topology/roles.json` and resolved by
-`./bin/start-1215.py compose-cmd <node> ...`.
+`./bin/1215 compose-cmd <node> ...`.

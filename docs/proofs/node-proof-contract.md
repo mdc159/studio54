@@ -46,7 +46,7 @@ Most checks use one of:
 
 The top-level `result.status` is stricter and must be only `PASS` or `FAIL`.
 Missing required fields, missing required artifacts, malformed JSON, or an
-unvalidated schema version must produce `FAIL` in the future verifier.
+unvalidated schema version produce `FAIL` in the verifier.
 
 ## Traceability IDs
 

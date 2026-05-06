@@ -11,10 +11,10 @@ Within the broader split model, `prototype-local` is the first proof of:
 - the VPS-oriented orchestration surface
 - optional `media-cpu` and `tools` role overlays
 
-See [docs/architecture/deployment-model.md](/mnt/data/Documents/repos/1215-vps/docs/architecture/deployment-model.md)
-for the repo-level rule: shared contracts live once, capabilities are enabled
-by role overlays, and each future node should select roles through a small local
-manifest under `nodes/`.
+See [Deployable Unit](../../docs/architecture/deployable-unit.md) for the
+repo-level assembly map: shared contracts live once, capabilities are enabled by
+role overlays, and each node should select roles through a small local manifest
+under `nodes/`.
 
 The first executable seam for that model now lives in `bin/1215` (alias
 `start-1215`):
@@ -82,16 +82,16 @@ repo-configured local services:
 - `n8n-mcp`
 - ComfyUI
 
-It does **not** yet include:
+It does **not** include these as compose services:
 
 - Hermes gateway
 - Honcho
 
-Those are added after the substrate is validated.
+Those exist as host-native service scaffolding under `stack/services/`.
 
 `n8n-mcp`, Paperclip, and the ComfyUI media path are therefore part of the
-current prototype target, while Hermes gateway and Honcho remain explicit next
-additions rather than already-implemented services.
+current prototype target, while Hermes gateway and Honcho remain host-native
+additions rather than compose-managed services.
 
 ## Prototype done bar
 
@@ -119,17 +119,14 @@ This renders `stack/prototype-local/.env` with local-only secrets, composes
 `HONCHO_DB_CONNECTION_URI` from `HONCHO_DB_PASSWORD`, leaves provider/API keys
 blank for explicit operator input, preserves existing secret values on
 re-renders so mounted runtime state does not drift, and keeps the committed
-[stack/prototype-local/.env.example](/mnt/data/Documents/repos/1215-vps/stack/prototype-local/.env.example)
+[stack/prototype-local/.env.example](.env.example)
 as the repo contract.
 
 Then bring the stack up:
 
 ```bash
-docker compose --env-file stack/prototype-local/.env \
-  -f stack/prototype-local/docker-compose.substrate.yml up -d
-docker compose -f stack/prototype-local/docker-compose.substrate.yml ps
-./bin/start-1215.py broker-files
-./bin/start-1215.py broker-apply --target prototype-local
+./bin/1215 up --target prototype-local
+./bin/1215 status --target prototype-local
 curl http://127.0.0.1:8090/healthz
 ```
 
@@ -160,8 +157,8 @@ seeding is a legacy helper path behind explicit flags (`--seed-owner`,
 `--seed-admin`). The intended flow is operator-owned first login, followed by
 workflow/function wiring.
 
-To bring up the next-stage local stack pieces (self-hosted Honcho, Hermes
-memory provider wiring, and Paperclip quickstart) in one pass:
+To verify host-native Honcho and Hermes memory provider wiring after the
+compose substrate is running:
 
 ```bash
 python3 stack/prototype-local/scripts/setup_hermes_honcho_paperclip.py
@@ -169,11 +166,10 @@ python3 stack/prototype-local/scripts/setup_hermes_honcho_paperclip.py
 
 This script:
 
-- starts a dedicated local `pgvector` Postgres for Honcho (`1215-honcho-pg`)
-- runs Honcho migrations and starts Honcho API/deriver on `127.0.0.1:18000`
+- expects the compose substrate Postgres and host-native Honcho service path
+- verifies Honcho API/deriver availability on `127.0.0.1:18000`
 - configures Hermes to use Honcho memory and a selectable model
-- starts Paperclip quickstart on `127.0.0.1:3100` with a writable local data dir
-- runs an optional Hermes↔Honcho cross-session memory smoke test
+- runs an optional Hermes/Honcho cross-session memory smoke test
 
 ### Paperclip instance contract
 
@@ -184,7 +180,7 @@ at:
 
 Tracked template:
 
-- [paperclip.instance.config.json.example](/home/mdc159/projects/company/studio54/stack/prototype-local/paperclip.instance.config.json.example)
+- [paperclip.instance.config.json.example](paperclip.instance.config.json.example)
 
 The reference node should not rely on an absent `PAPERCLIP_CONFIG` target plus
 Paperclip's internal missing-file fallback behavior.
@@ -216,15 +212,15 @@ Current local entry points for the validated prototype path:
 
 Repo-owned workflow and function artifacts:
 
-- Open WebUI pipe: [stack/prototype-local/open-webui/functions/prototype_n8n_pipe.py](/mnt/data/Documents/repos/1215-vps/stack/prototype-local/open-webui/functions/prototype_n8n_pipe.py)
-- Open WebUI ComfyUI pipe: [stack/prototype-local/open-webui/functions/prototype_comfyui_pipe.py](/mnt/data/Documents/repos/1215-vps/stack/prototype-local/open-webui/functions/prototype_comfyui_pipe.py)
-- Open WebUI -> `n8n` -> broker smoke test: [stack/prototype-local/scripts/test_openwebui_n8n_broker.py](/mnt/data/Documents/repos/1215-vps/stack/prototype-local/scripts/test_openwebui_n8n_broker.py)
-- n8n manual smoke workflow: [stack/prototype-local/n8n/Get_Prototype_Postgres_Tables.json](/mnt/data/Documents/repos/1215-vps/stack/prototype-local/n8n/Get_Prototype_Postgres_Tables.json)
-- n8n webhook smoke workflow: [stack/prototype-local/n8n/Get_Prototype_Postgres_Tables_Webhook.json](/mnt/data/Documents/repos/1215-vps/stack/prototype-local/n8n/Get_Prototype_Postgres_Tables_Webhook.json)
-- n8n MinIO webhook smoke workflow: [stack/prototype-local/n8n/List_Prototype_Minio_Buckets_Webhook.json](/mnt/data/Documents/repos/1215-vps/stack/prototype-local/n8n/List_Prototype_Minio_Buckets_Webhook.json)
-- n8n ComfyUI smoke workflow: [stack/prototype-local/n8n/Get_Prototype_ComfyUI_System_Stats_Webhook.json](/mnt/data/Documents/repos/1215-vps/stack/prototype-local/n8n/Get_Prototype_ComfyUI_System_Stats_Webhook.json)
-- n8n ComfyUI SD1.5 queue workflow: [stack/prototype-local/n8n/Queue_Prototype_ComfyUI_SD15_Webhook.json](/mnt/data/Documents/repos/1215-vps/stack/prototype-local/n8n/Queue_Prototype_ComfyUI_SD15_Webhook.json)
-- n8n ComfyUI SD1.5 artifact workflow: [stack/prototype-local/n8n/Generate_Prototype_ComfyUI_SD15_Artifact_Webhook.json](/mnt/data/Documents/repos/1215-vps/stack/prototype-local/n8n/Generate_Prototype_ComfyUI_SD15_Artifact_Webhook.json)
+- Open WebUI pipe: [stack/prototype-local/open-webui/functions/prototype_n8n_pipe.py](open-webui/functions/prototype_n8n_pipe.py)
+- Open WebUI ComfyUI pipe: [stack/prototype-local/open-webui/functions/prototype_comfyui_pipe.py](open-webui/functions/prototype_comfyui_pipe.py)
+- Open WebUI -> `n8n` -> broker smoke test: [stack/prototype-local/scripts/test_openwebui_n8n_broker.py](scripts/test_openwebui_n8n_broker.py)
+- n8n manual smoke workflow: [stack/prototype-local/n8n/Get_Prototype_Postgres_Tables.json](n8n/Get_Prototype_Postgres_Tables.json)
+- n8n webhook smoke workflow: [stack/prototype-local/n8n/Get_Prototype_Postgres_Tables_Webhook.json](n8n/Get_Prototype_Postgres_Tables_Webhook.json)
+- n8n MinIO webhook smoke workflow: [stack/prototype-local/n8n/List_Prototype_Minio_Buckets_Webhook.json](n8n/List_Prototype_Minio_Buckets_Webhook.json)
+- n8n ComfyUI smoke workflow: [stack/prototype-local/n8n/Get_Prototype_ComfyUI_System_Stats_Webhook.json](n8n/Get_Prototype_ComfyUI_System_Stats_Webhook.json)
+- n8n ComfyUI SD1.5 queue workflow: [stack/prototype-local/n8n/Queue_Prototype_ComfyUI_SD15_Webhook.json](n8n/Queue_Prototype_ComfyUI_SD15_Webhook.json)
+- n8n ComfyUI SD1.5 artifact workflow: [stack/prototype-local/n8n/Generate_Prototype_ComfyUI_SD15_Artifact_Webhook.json](n8n/Generate_Prototype_ComfyUI_SD15_Artifact_Webhook.json)
 
 The currently validated E2E path is:
 
@@ -292,15 +288,15 @@ Important behavior:
 
 ### n8n media notes
 
-The local `n8n` image is built from [stack/prototype-local/n8n/Dockerfile](/mnt/data/Documents/repos/1215-vps/stack/prototype-local/n8n/Dockerfile).
+The local `n8n` image is built from [stack/prototype-local/n8n/Dockerfile](n8n/Dockerfile).
 It copies static `ffmpeg` and `ffprobe` binaries into the official `n8n`
 image. This is intentional: the current hardened `n8n` image in this stack does
 not include `apk`, so `apk add --no-cache ffmpeg` is not a valid local fix.
 
 The base `n8n` image is pinned through `N8N_BASE_IMAGE` in
-`stack/prototype-local/.env`. Default is `n8nio/n8n:latest`, but this makes it
-easy to freeze to a late `1.x` image if `2.x` hardening or runtime regressions
-block required local workflows.
+`stack/prototype-local/.env`. The compose default is `n8nio/n8n:2.3.6`, and the
+env value remains the operator-controlled place to freeze or advance the n8n
+runtime.
 
 ### Langfuse tracing notes
 
@@ -474,8 +470,8 @@ Admin API endpoints used successfully against `v0.7.2`:
 
 The repo-owned sync path is:
 
-- [stack/prototype-local/open-webui/functions/manifest.json](/mnt/data/Documents/repos/1215-vps/stack/prototype-local/open-webui/functions/manifest.json)
-- [stack/prototype-local/scripts/sync_openwebui_functions.py](/mnt/data/Documents/repos/1215-vps/stack/prototype-local/scripts/sync_openwebui_functions.py)
+- [stack/prototype-local/open-webui/functions/manifest.json](open-webui/functions/manifest.json)
+- [stack/prototype-local/scripts/sync_openwebui_functions.py](scripts/sync_openwebui_functions.py)
 
 Reference-node policy:
 
@@ -517,13 +513,12 @@ Known gotchas already hit in this stack:
   `webhookId` and that the runtime method matches the node configuration.
 - The `n8n` CLI import commands require real file paths. They do not accept
   `--input=-`, so stdin-based imports fail with `ENOENT`.
-- The repo-owned bootstrap path lives in:
 - Reference-node policy is to create the first `n8n` owner manually, then
   generate the API key from inside the UI and place it into the ignored `.env`.
 - The repo-owned legacy bootstrap path lives in:
-  - [stack/prototype-local/n8n/credentials.manifest.json](/mnt/data/Documents/repos/1215-vps/stack/prototype-local/n8n/credentials.manifest.json)
-  - [stack/prototype-local/n8n/workflows.manifest.json](/mnt/data/Documents/repos/1215-vps/stack/prototype-local/n8n/workflows.manifest.json)
-  - [stack/prototype-local/scripts/bootstrap_n8n.py](/mnt/data/Documents/repos/1215-vps/stack/prototype-local/scripts/bootstrap_n8n.py)
+  - [stack/prototype-local/n8n/credentials.manifest.json](n8n/credentials.manifest.json)
+  - [stack/prototype-local/n8n/workflows.manifest.json](n8n/workflows.manifest.json)
+  - [stack/prototype-local/scripts/bootstrap_n8n.py](scripts/bootstrap_n8n.py)
 - Current repo-owned workflows do not require `n8n`'s Python task runner. The
   custom prototype image is intentionally limited to the static `ffmpeg` and
   `ffprobe` addition until a real Python-node requirement exists.

@@ -3,7 +3,7 @@
 # Install the honcho and honcho-deriver systemd --user units on this host.
 #
 # Idempotent: re-running is safe. It:
-#   - resolves the repo root and the honcho module directory
+#   - resolves the repo root and the vendored honcho source directory
 #   - renders the runtime env file at ~/.config/1215-vps/honcho.env from
 #     stack/prototype-local/.env (and fails if that file is missing)
 #   - renders the two .service units from the committed .in templates,
@@ -15,7 +15,7 @@
 #   systemctl --user enable --now honcho honcho-deriver
 #
 # Prerequisites:
-#   - modules/honcho submodule is checked out
+#   - vendored modules/honcho source tree is present
 #   - `uv` is on PATH or installed at /root/.local/bin/uv
 #   - stack/prototype-local/.env contains OPENROUTER_API_KEY and
 #     POSTGRES_PASSWORD
@@ -33,8 +33,8 @@ honcho_env_dir="${config_home}/1215-vps"
 honcho_env_file="${honcho_env_dir}/honcho.env"
 
 if [[ ! -d "${honcho_dir}" ]]; then
-  echo "ERROR: honcho module not checked out at ${honcho_dir}." >&2
-  echo "Run: git submodule update --init modules/honcho" >&2
+  echo "ERROR: vendored Honcho source tree missing at ${honcho_dir}." >&2
+  echo "Restore modules/honcho before installing Honcho." >&2
   exit 1
 fi
 if [[ ! -f "${env_source}" ]]; then

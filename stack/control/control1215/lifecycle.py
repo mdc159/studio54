@@ -73,9 +73,9 @@ SERVICES: list[ServiceSpec] = [
     ServiceSpec("postgres", "compose", compose_service="postgres", port="5433"),
     ServiceSpec("valkey", "compose", compose_service="valkey", port="6379"),
     ServiceSpec("minio", "compose", compose_service="minio", port="9010"),
-    ServiceSpec("qdrant", "compose", compose_service="qdrant", port="6335"),
-    ServiceSpec("neo4j", "compose", compose_service="neo4j", port="7475"),
-    ServiceSpec("clickhouse", "compose", compose_service="clickhouse", port="8124"),
+    ServiceSpec("qdrant", "compose", compose_service="qdrant", port="6333"),
+    ServiceSpec("neo4j", "compose", compose_service="neo4j", port="7474"),
+    ServiceSpec("clickhouse", "compose", compose_service="clickhouse", port="8123"),
     ServiceSpec(
         "broker",
         "compose",
@@ -98,7 +98,7 @@ SERVICES: list[ServiceSpec] = [
         port="8080",
     ),
     ServiceSpec("n8n", "compose", compose_service="n8n", port="5678"),
-    ServiceSpec("n8n-mcp", "compose", compose_service="n8n-mcp", port="3011"),
+    ServiceSpec("n8n-mcp", "compose", compose_service="n8n-mcp", port="13000"),
     ServiceSpec(
         "paperclip",
         "compose",

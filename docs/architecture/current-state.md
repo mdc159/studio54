@@ -1,240 +1,206 @@
 # 1215-VPS Current State
 
-Factual snapshot of what is actually in this repository as of the time of
-writing. No opinions, no aspirations. Sourced directly from
-`docker-compose.substrate.yml`, `stack/sql/`, `stack/broker/`,
-`stack/topology/`, `stack/roles/`, `nodes/`, and
-`stack/prototype-local/scripts/`.
+This is the repo-grounded snapshot for Studio54 as it exists now. It separates
+the pieces that are runnable today from service scaffolding, operator runbooks,
+and future-state architecture.
 
-For the target state, see [north-star.md](north-star.md). For the plan to
-close the gap, see [roadmap.md](roadmap.md).
+For the assembly map, see [deployable-unit.md](deployable-unit.md). For the
+implementation path back to a single repeatable VPS unit, see
+[reconstruction-plan.md](reconstruction-plan.md).
 
-For the live Donna / Studio54 VPS runtime inventory, see
-[donna-vps-service-map.md](donna-vps-service-map.md). The VPS has already
-drifted beyond the purely local compose shape described in this document.
+## Current Shape
 
-## Services Actually Running
+The active execution path is direct Paperclip -> Hermes through per-company
+`hermes_local`. The Paperclip -> Hermes gateway exists as repo-owned
+scaffolding, but it is not the active Paperclip task execution path.
 
-All services defined in
-[stack/prototype-local/docker-compose.substrate.yml](../../stack/prototype-local/docker-compose.substrate.yml).
-Every compose-managed host port is bound to `127.0.0.1` only — no public
-compose binds exist.
+```mermaid
+flowchart LR
+    operator[Operator] --> tailnet[Tailscale / loopback access]
+    tailnet --> webui[Open WebUI]
+    tailnet --> paperclip[Paperclip]
+    tailnet --> n8n[n8n]
 
-| Service | Image | Host binds | Internal DNS | Volumes |
-|---|---|---|---|---|
-| `broker` | Built from `stack/broker` (Python + FastAPI + psycopg) | `127.0.0.1:8090 -> 8090` | `broker:8090` | none |
-| `postgres` | `postgres:17` | `127.0.0.1:5433 -> 5432` | `postgres:5432` | `prototype_postgres_data` |
-| `postgres-bootstrap` | `postgres:17` (one-shot) | — | — | — |
-| `valkey` | `docker.io/valkey/valkey:8-alpine` | `127.0.0.1:6379 -> 6379` | `valkey:6379` | `prototype_valkey_data` |
-| `minio` | `minio/minio` (unpinned) | `127.0.0.1:9010 -> 9000`, `127.0.0.1:9011 -> 9001` | `minio:9000` | `prototype_minio_data` |
-| `minio-init` | `minio/mc` (unpinned) (one-shot) | — | — | — |
-| `shared-data-init` | `busybox:1.36` (one-shot) | — | — | `prototype_shared_data` |
-| `qdrant` | `qdrant/qdrant` (unpinned) | `127.0.0.1:6333 -> 6333`, `127.0.0.1:6334 -> 6334` | `qdrant:6333` | `prototype_qdrant_data` |
-| `neo4j` | `neo4j:latest` (unpinned) | `127.0.0.1:7474 -> 7474`, `127.0.0.1:7473 -> 7473`, `127.0.0.1:7687 -> 7687` | `neo4j:7687` | `prototype_neo4j_{data,logs,config,plugins}` |
-| `clickhouse` | `clickhouse/clickhouse-server` (unpinned) | `127.0.0.1:8123 -> 8123`, `127.0.0.1:9000 -> 9000`, `127.0.0.1:9009 -> 9009` | `clickhouse:8123/9000` | `prototype_clickhouse_{data,logs}` |
-| `langfuse-worker` | `langfuse/langfuse-worker:3` | `127.0.0.1:3030 -> 3030` | `langfuse-worker:3030` | — |
-| `langfuse-web` | `langfuse/langfuse:3` | `127.0.0.1:3000 -> 3000` | `langfuse-web:3000` | — |
-| `open-webui` | `ghcr.io/open-webui/open-webui@sha256:eb874c05…` (v0.9.0) | `127.0.0.1:8080 -> 8080` | `open-webui:8080` | `prototype_open_webui_data` |
-| `comfyui` | `ghcr.io/lecode-official/comfyui-docker@sha256:e27739fc…` | `127.0.0.1:8188 -> 8188` | `comfyui:8188` | `prototype_comfyui_{models,custom_nodes,output}`, `prototype_shared_data` |
-| `n8n` | Built from `stack/prototype-local/n8n` (base `n8nio/n8n:2.3.6`) | `127.0.0.1:5678 -> 5678` | `n8n:5678` | `prototype_n8n_data`, `prototype_shared_data` |
-| `paperclip` | Built from `modules/paperclip` | host network; app binds `127.0.0.1:3100` | none (`network_mode: host`) | `prototype_paperclip_data` |
-| `n8n-mcp` | `ghcr.io/czlonkowski/n8n-mcp:2.33.5` | `127.0.0.1:13000 -> 3000` | `n8n-mcp:3000` | `prototype_n8n_mcp_data` |
+    webui --> pipe[repo-owned pipe functions]
+    pipe --> n8n
+    n8n --> broker[Broker API]
+    n8n --> comfy[ComfyUI]
+    comfy --> minio[MinIO artifacts]
+    minio --> broker
 
-15 long-running services plus 3 one-shot init containers
-(`postgres-bootstrap`, `minio-init`, `shared-data-init`). Five images are
-unpinned (`minio/minio`, `minio/mc`, `qdrant/qdrant`, `neo4j:latest`,
-`clickhouse/clickhouse-server`).
+    paperclip --> adapter[hermes_local adapter]
+    adapter --> home[company HERMES_HOME]
+    home --> honcho[Honcho workspace = companyId]
+    adapter --> langfuse[Langfuse trace = Paperclip run ID]
 
-The Langfuse stack uses:
+    postgres[(Postgres)] --> broker
+    postgres --> paperclip
+    postgres --> langfuse
+    clickhouse[(ClickHouse)] --> langfuse
+```
 
-- Postgres (shared, database `langfuse` created by `postgres-bootstrap`)
-- ClickHouse (primary analytics store)
-- MinIO (bucket `langfuse` for events + media uploads, prefix-segmented)
-- Valkey (Redis-compatible cache)
+## Runnable App Plane
 
-ComfyUI runs in CPU mode (`--cpu`) with CORS headers enabled and a shared
-`/data/shared` mount that the n8n container also sees.
+[stack/prototype-local/docker-compose.substrate.yml](../../stack/prototype-local/docker-compose.substrate.yml)
+is the only runnable compose target. It binds compose-managed host ports to
+`127.0.0.1` and includes:
 
-## Host-Side Assets
+| Area | Services |
+| --- | --- |
+| Continuity | `broker`, `postgres`, `broker-bootstrap`, `postgres-bootstrap` |
+| Workflow/UI | `open-webui`, `n8n`, `n8n-mcp` |
+| Company/task orchestration | `paperclip` |
+| Observability | `langfuse-web`, `langfuse-worker`, `clickhouse` |
+| Storage/memory substrates | `minio`, `minio-init`, `valkey`, `qdrant`, `neo4j` |
+| Media | `comfyui`, `shared-data-init` |
 
-`stack/prototype-local/scripts/setup_hermes_honcho_paperclip.py` — a
-manual one-shot bringup script that:
+Current operator entry points:
 
-- installs `hermes-agent` from the repo submodule and runs it on the host
-- stands up a **separate** `1215-honcho-pg` Postgres container (distinct from
-  the substrate `postgres`) and bind-runs Honcho's FastAPI + deriver on the
-  host, reachable at `http://127.0.0.1:18000`
-- builds and runs the Paperclip docker image (also separately, not via
-  `docker-compose.substrate.yml`), reachable at `http://127.0.0.1:3100`
-- runs a Hermes → Honcho memory smoke test
+- `./bin/1215 up`
+- `./bin/1215 status`
+- `./bin/1215 smoke`
+- `./bin/1215 logs <service>`
+- `./bin/1215 down`
 
-No systemd units exist anywhere in the repo. Every host-side process is
-manually managed via this script.
+The workflow layer has repo-owned assets under:
 
-Other scripts in `stack/prototype-local/scripts/`:
+- `stack/prototype-local/open-webui/functions/`
+- `stack/prototype-local/n8n/`
+- `stack/prototype-local/scripts/bootstrap_n8n.py`
+- `stack/prototype-local/scripts/sync_openwebui_functions.py`
+- `stack/prototype-local/scripts/test_openwebui_n8n_broker.py`
+- `stack/prototype-local/scripts/test_n8n_mcp_functional.py`
 
-- `init_env.py` — seeds `.env` from `.env.example`
-- `bootstrap_n8n.py` — legacy helper that can seed n8n owner state, generate or
-  reuse an API key, and import workflow JSON
-- `sync_openwebui_functions.py` — legacy helper that can seed Open WebUI admin
-  state and install repo-owned pipe functions
-- `test_openwebui_n8n_broker.py` — E2E test of the OWU → n8n → broker flow
-- `test_n8n_mcp_functional.py` — functional test of n8n-mcp tools
-- `gate_shared_core.py` — prototype-local shared-core gate runner
+The validated local workflow path is Open WebUI pipe -> n8n webhook -> broker
+continuity records. The validated media path is n8n -> ComfyUI -> MinIO ->
+broker artifact registration.
 
-## Broker Schema
+## Company And Memory Plane
 
-[stack/sql/broker/001_core.sql](../../stack/sql/broker/001_core.sql) defines
-a single `broker` schema with 9 tables.
+The active company bootstrap implementation is:
 
-**Lookup tables** (seeded at migration time):
+- `./bin/1215 company bootstrap --template-file <template>`
+- `stack/prototype-local/scripts/bootstrap_paperclip_hermes_company.py`
+- `stack/prototype-local/scripts/prepare_paperclip_hermes_home.py`
+- `stack/prototype-local/templates/paperclip-hermes-one-agent.json`
+- `stack/prototype-local/templates/paperclip-hermes-manager-worker.json`
 
-- `broker.event_types` — 12 event types seeded: `node.upserted`,
-  `session.created`, `run.created`, `run.started`, `run.completed`,
-  `run.failed`, `workflow.started`, `workflow.completed`, `workflow.failed`,
-  `artifact.registered`, `memory.published`, `memory.recalled`
-- `broker.artifact_kinds` — 5: `document`, `trace-export`, `workflow-output`,
-  `memory-extract`, `blob`
-- `broker.checkpoint_kinds` — 3: `publish-outbox`, `replay-cursor`,
-  `provider-sync`
+The bootstrap path creates or reuses a Paperclip company, prepares a
+company-scoped Hermes home, creates `hermes_local` agents, rerenders
+`honcho.json` after the final agent ID is known, and creates a validation
+issue.
 
-**Entity tables:**
+Active memory contract:
 
-- `broker.nodes` — node registry (`node_id`, `node_role`, `display_name`,
-  `metadata_json`)
-- `broker.sessions` — continuity sessions bound to a node and surface
-- `broker.runs` — run lifecycle (`run_id`, `session_id`, `run_kind`,
-  `status`, timestamps)
-- `broker.events` — canonical append-only event log with `event_seq`
-  (identity), `event_id` (unique), `payload_version`, `idempotency_key`
-  (unique per node), `source_event_id` + `source_event_hash` for lineage,
-  `occurred_at`, `recorded_at`, `payload_json`, `metadata_json`.
-  Payload and metadata both constrained to JSONB objects.
-- `broker.artifacts` — artifact manifests keyed by `(storage_backend, uri)`,
-  linked to `source_event_id` + `source_event_hash`
-- `broker.provider_checkpoints` — consumer offsets keyed by
-  `(provider_name, node_id, checkpoint_kind)`
+- Paperclip owns companies, agents, issues, comments, assignment, and run
+  state.
+- Hermes local state is isolated by company `HERMES_HOME`.
+- Honcho is additive long-horizon memory, not a replacement for Hermes local
+  state.
+- Honcho `workspace` is the Paperclip `companyId`.
+- Honcho `aiPeer` is `paperclip-agent-<agentId>` after the agent-aware render.
+- The current manager/worker topology shares one company `HERMES_HOME`; it is
+  not per-agent Hermes home isolation.
 
-Indexes exist on `events.event_type`, `events.session_id`, `events.run_id`,
-and `artifacts.source_event_id`.
+## Host-Native And Operator Plane
 
-## Broker API Surface
+The repo contains host-native service scaffolding:
 
-[stack/broker/broker_service/app.py](../../stack/broker/broker_service/app.py)
-exposes a FastAPI application at `:8090` with the following endpoints:
+- `stack/services/honcho/install.sh`
+- `stack/services/honcho/honcho.service.in`
+- `stack/services/honcho/honcho-deriver.service.in`
+- `stack/services/hermes-gateway/`
+- `deploy/vps/systemd/hermes-dashboard.service`
+- `deploy/vps/systemd/paperclip-bridge.service`
+- `deploy/vps/ufw-rules.sh`
 
-| Method | Path | Purpose |
-|---|---|---|
-| GET | `/healthz` | DB connectivity + service name |
-| POST | `/nodes` | Upsert a node registration |
-| POST | `/sessions` | Create or update a session |
-| POST | `/runs` | Create or update a run |
-| POST | `/events` | Append an event, idempotent per `(node_id, idempotency_key)` |
-| GET | `/events` | List most recent events (limit 1–500, default 50) |
-| POST | `/artifacts` | Upsert an artifact manifest by `(storage_backend, uri)` |
-| GET | `/artifacts` | List artifacts, optionally filtered by `source_event_id` |
-| GET | `/config` | Database / service introspection |
+Honcho is intended to run host-native as `systemd --user` against the shared
+substrate Postgres on `127.0.0.1:5433`. Outer/operator Hermes remains separate
+from Paperclip-internal Hermes runs.
 
-Request models are defined as Pydantic `BaseModel` classes
-(`NodeUpsert`, `SessionCreate`, `RunCreate`, `EventCreate`, `ArtifactCreate`).
-Configuration comes from environment variables (`BROKER_DATABASE_*`,
-`BROKER_SERVICE_NAME`).
+The VPS bring-up sequence is still a manual runbook in
+[deploy/vps/INSTALL.md](../../deploy/vps/INSTALL.md). It covers Ubuntu
+packages, root `.env`, runtime projection, compose up, Tailscale Serve,
+outer Hermes, Honcho user units, Paperclip company bootstrap, and proofs. It is
+not yet packaged as one idempotent installer.
 
-## Topology Declarations
+## Topology And Node Declarations
 
-[stack/topology/services.json](../../stack/topology/services.json) enumerates
-services with `layer`, `role`, and `exposure` metadata. Covers: `open-webui`,
-`paperclip`, `n8n`, `comfyui`, `n8n-mcp`, and the substrate set.
+[stack/topology/targets.json](../../stack/topology/targets.json) defines:
 
-[stack/topology/targets.json](../../stack/topology/targets.json) defines two
-targets:
+- `prototype-local`: runnable through the prototype compose file and includes
+  Paperclip.
+- `vps-hub`: declared as the intended hub shape, but `compose_files` is empty,
+  so it is not runnable as a target yet.
 
-- `prototype-local` — `compose_files: ["stack/prototype-local/docker-compose.substrate.yml"]`;
-  services list includes the 12 runtime containers **plus** `comfyui`, but
-  does **not** include `paperclip`, `honcho`, `hermes-gateway`, or `hermes`.
-- `vps-hub` — `compose_files: []` (empty). Services array lists 15 items
-  including `paperclip`, `honcho`, `hermes-gateway`, `hermes`. This target
-  has no compose wiring — it is a declaration only, not yet a runnable
-  configuration.
+[nodes/linux-prototype/](../../nodes/linux-prototype/) exists as the current
+repo-owned node manifest area. Role overlays exist for media/tooling, while
+`core` and `vps` are still role vocabulary without their own compose overlay
+directories.
 
-[stack/topology/roles.json](../../stack/topology/roles.json) defines roles:
-`core`, `vps`, `media-cpu`, `media-gpu`, `builder`, `tools`. See next
-section for their compose-file state.
+## Vendored Modules
 
-## Role Overlays
+`modules/` contains vendored snapshots, not active Git submodules. The old
+`.gitmodules` metadata was removed because Git was tracking these directories as
+ordinary source trees rather than submodule pointers.
 
-Directory state under [stack/roles/](../../stack/roles/):
+Runtime-required today:
 
-- `README.md` — brief overview of the overlay system
-- `builder/docker-compose.role.yml` — present, content is `services: {}`
-- `media-cpu/docker-compose.role.yml` — present
-- `media-gpu/docker-compose.role.yml` — present
-- `tools/docker-compose.role.yml` — present
+- `modules/paperclip`: Paperclip compose image build context
+- `modules/honcho`: host-native Honcho install source
+- `modules/hermes-agent`: Hermes runtime/probe source used by validation and
+  host/runtime scripts
 
-No `core/` or `vps/` overlay directories exist on disk — the shared core is
-defined directly in `stack/prototype-local/docker-compose.substrate.yml`, and
-the `vps` role has no compose overlay yet. The role overlay system is
-scaffolded but only partially populated.
+Reference or future-facing today:
 
-## Node Manifests
+- `modules/local-ai-packaged`
+- `modules/hermes-paperclip-adapter`
+- `modules/hermes-agent-self-evolution`
+- `modules/autoreason`
+- `modules/n8n-mcp`
+- `modules/n8n-skills`
 
-No `nodes/` directory exists at the repo root. Earlier placeholder manifests
-for `vps`, `engineering-pc`, and `local-builder` have been removed as part of
-the Phase 0 trim; they carried no live configuration and the only node that
-matters today is this Linux prototype machine, which does not yet have a
-manifest directory either. Phase A creates `nodes/linux-prototype/` with a
-`README.md` and a `roles.env.example` (role string: `core,media-cpu,tools`).
+These snapshots do not update automatically. Updating them requires an
+intentional vendor update or replacement with a pinned package/image.
 
-## Environment Configuration
+## Proof And CI Plane
 
-[stack/prototype-local/.env.example](../../stack/prototype-local/.env.example)
-is the template for local configuration. The live
-`stack/prototype-local/.env` is `.gitignore`-excluded and contains
-placeholders for Postgres, MinIO, Langfuse, n8n, Neo4j, Honcho, Broker,
-Paperclip credentials. `n8n` and Open WebUI first-owner identity fields are
-now intentionally blank by default so the operator can claim ownership through
-the UI. Module-specific `.env.example` / `.env.template` files exist under
-`modules/*/`.
+The verifier-first lane exists and currently proves repo health plus simulated
+memory isolation:
 
-No committed secrets exist in the repo (verified via `.gitignore` coverage
-of `stack/prototype-local/.env`).
+- `scripts/simulate-vps-bootstrap.sh`
+- `scripts/verify-simulated-vps-bootstrap.py`
+- `scripts/proof/collect-node-proof.py`
+- `scripts/proof/verify-node-proof.py`
+- `scripts/proof/paperclip-coordination-proof.py`
+- `schemas/proof/node-proof.schema.json`
+- `docs/proofs/node-proof-contract.md`
 
-## What Is Decidedly Not In The Repo
+CI lanes:
 
-Explicit list of things referenced by `north-star.md` but absent today:
+- `Studio54 validation` / job `validate`
+- `VPS bootstrap simulation` / job `simulated-vps-bootstrap`
 
-- **`stack/services/hermes-gateway/`** — directory, daemon code, tests,
-  installer, systemd user unit, and Unix domain socket contract are now present
-  as repo-owned implementation scaffolding. It is not the active Paperclip
-  execution path; the proven path remains direct per-company `hermes_local`.
-- **`orchestrator-ceo` Hermes profile** — no `HERMES_HOME` layout, no
-  profile config, no skills directory. The `setup_hermes_honcho_paperclip.py`
-  smoke test runs Hermes against a default profile only.
-- **Honcho as a managed service** — runs from the host via the setup script,
-  against its own isolated `1215-honcho-pg` Postgres container. No systemd
-  unit, no compose service, and not wired to the shared substrate Postgres.
-- **Edge layer** — no Caddy config, no Tailscale config, no Cloudflared
-  config, no `cloudflared` services anywhere in the repo. The compose target
-  is localhost-only; private operator ingress is provided on the live node by
-  Tailscale Serve rather than a repo-owned edge service.
-- **Learning-plane runtime** — `autoreason` and `hermes-agent-self-evolution`
-  are present as submodules (declared in `.gitmodules`). No
-  `learning-orchestrator`, `eval-runner`, `dataset-builder`, or
-  `candidate-registry` runtime services exist.
-- **`broadcast_*` / `artifact_*` Hermes skills** — no skills on any profile
-  that wrap the broker API as callable Hermes skills. The broker API is
-  reachable but no agent currently calls it as a skill.
-- **Langfuse model-call tracing** — private caller-side tracing is repo-owned
-  in Hermes for OpenAI-compatible chat completions on the active direct
-  `hermes_local` path. The Paperclip run ID is passed through as
-  `PAPERCLIP_RUN_ID`, `HERMES_RUN_ID`, and `LANGFUSE_TRACE_ID`, so the
-  Langfuse trace ID equals the Paperclip run ID. Raw prompt/output capture is
-  explicit opt-in with `LANGFUSE_CAPTURE_CONTENT=true`; it is not enabled by
-  default. This is not full system-wide observability or the completed Phase G
-  gateway/broker/Hermes architecture. The canonical operator contract is
-  [Langfuse Traceability](langfuse-traceability.md), and the integration
-  narrative is [Langfuse Integration Status](langfuse-integration-status.md).
-- **`vps-hub` compose implementation** — the target is declared with 15
-  services but `compose_files` is empty.
-- **Node manifest for this machine** — no live `nodes/<this-host>/` entry
-  describing what the Linux prototype is playing.
+Current proof status:
+
+- Simulation memory canaries cover separate company Hermes homes, host-vs-company
+  Hermes home separation, Honcho workspace mapping, and Honcho AI peer mapping.
+- `./bin/1215 proof node --json` collects and verifies the node proof contract.
+- Live Paperclip coordination proof exists as a script, but it is not yet part
+  of the default node proof.
+
+## Current Gaps
+
+- No single idempotent command installs host prerequisites, projects env,
+  starts compose, installs host-native units, configures Tailscale Serve,
+  bootstraps a company, and collects a live proof.
+- `vps-hub` is declarative only.
+- Tailscale Serve configuration is documented but not represented as a
+  repo-owned reusable config asset.
+- The Paperclip image contract depends on executable Hermes plus the Honcho
+  provider dependency being available inside the Paperclip runtime.
+- The manager/worker path does not yet provide per-agent Hermes homes or
+  formal per-task Honcho sessions.
+- Live/staging Paperclip coordination proof is available but not yet integrated
+  into the node proof collector.
+- Secrets and first-owner UI setup remain operator-controlled.

@@ -81,7 +81,7 @@ superseded the stale `langfuse-sidecar` PR.
 | `stack/topology/` | Service, target, and role declarations for repeatable node composition. |
 | `stack/roles/` | Role-specific compose overlays for future specialized nodes. |
 | `deploy/vps/` | VPS installation and operator runbook material. |
-| `modules/` | Upstream modules used by the bootstrap: Paperclip, Hermes, Honcho, local-ai-packaged, n8n-mcp, and learning/eval references. |
+| `modules/` | Vendored upstream snapshots. Some are runtime inputs today; they are not live-updating Git submodules. |
 | `agent-knowledge-exchange/` | Shared operational knowledge and skills used around the node. |
 
 ## Important Docs
@@ -92,6 +92,10 @@ Start here:
   the correct private-first node shape.
 - [Current State](docs/architecture/current-state.md) records what is actually
   in the repo today.
+- [Deployable Unit](docs/architecture/deployable-unit.md) maps the fragmented
+  runtime, workflow, company, host, and proof pieces into one node shape.
+- [Reconstruction Plan](docs/architecture/reconstruction-plan.md) lists the
+  implementation path back to a repeatable VPS deployable unit.
 - [Paperclip `hermes_local` Contract](docs/architecture/paperclip-hermes-local-contract.md)
   defines how Paperclip runs Hermes directly.
 - [Company Bootstrap](docs/architecture/company-bootstrap.md) explains the
@@ -112,11 +116,14 @@ Start here:
   company-local agents, snapshots, and delegated/forked agent execution modes.
 - [VPS Install Runbook](deploy/vps/INSTALL.md) is the operator-oriented setup
   path.
+- [Plans](docs/plans/README.md) keeps the original verifier-first plan and the
+  adjusted plan that has actually been executed.
 
 The fuller Langfuse integration narrative and traceability contract now live in
 [Langfuse Integration Status](docs/architecture/langfuse-integration-status.md)
 and [Langfuse Traceability](docs/architecture/langfuse-traceability.md). Use
-[Current State](docs/architecture/current-state.md) and
+[Current State](docs/architecture/current-state.md),
+[Deployable Unit](docs/architecture/deployable-unit.md), and
 [Paperclip `hermes_local` Contract](docs/architecture/paperclip-hermes-local-contract.md)
 for the current execution baseline.
 
@@ -181,9 +188,11 @@ The role and topology manifests under `stack/topology/` and `stack/roles/`
 exist to make that split explicit over time. Today, the reference node remains
 the primary proven unit.
 
-## Upstream Modules
+## Vendored Modules
 
-The repo carries upstream projects as modules and integration inputs:
+The repo carries upstream projects as vendored snapshots and integration
+inputs. They are tracked as ordinary files in this repo, not as active Git
+submodules, and they do not update automatically.
 
 - `modules/local-ai-packaged`
 - `modules/hermes-agent`
@@ -195,8 +204,8 @@ The repo carries upstream projects as modules and integration inputs:
 - `modules/n8n-mcp`
 
 Studio54 Bootstrap is responsible for how these pieces are assembled into a
-working node. Upstream modules remain their own projects; this repo defines the
-deployment, contracts, and operational glue.
+working node. Runtime-required vendored modules should eventually be replaced
+with pinned images, packages, or explicit vendor-update scripts where practical.
 
 ## Current Cleanup Goal
 

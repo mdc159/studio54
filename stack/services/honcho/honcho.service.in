@@ -13,7 +13,7 @@ WorkingDirectory=@HONCHO_DIR@
 EnvironmentFile=@ENV_FILE@
 Environment=PYTHON_DOTENV_DISABLED=1
 # Alembic is idempotent; running on every start catches schema drift after
-# a Honcho submodule update without needing a separate one-shot unit.
+# a vendored Honcho source update without needing a separate one-shot unit.
 ExecStartPre=@UV_BIN@ run alembic upgrade head
 ExecStart=@UV_BIN@ run fastapi run src/main.py --host 127.0.0.1 --port 18000
 Restart=on-failure

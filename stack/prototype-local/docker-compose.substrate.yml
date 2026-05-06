@@ -379,7 +379,7 @@ services:
   paperclip:
     # Paperclip orchestration workbench.
     #
-    # Build context is the modules/paperclip submodule; USER_UID/USER_GID
+    # Build context is the vendored modules/paperclip source tree; USER_UID/USER_GID
     # are baked in at build time so the in-container `node` user matches
     # the host user (1000) and can read the gateway UDS. Runtime
     # overrides are also honoured by scripts/docker-entrypoint.sh.
