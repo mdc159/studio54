@@ -14,10 +14,19 @@ import subprocess
 from pathlib import Path
 
 PROTECTED_PREFIXES = (
+    ".github/CODEOWNERS",
     ".github/workflows/",
+    "bin/1215",
+    "deploy/",
+    "schemas/",
     "scripts/agent-evidence-guard.py",
-    "scripts/verify-simulated-vps-bootstrap.py",
+    "scripts/doctor-agent-env.sh",
+    "scripts/proof/",
     "scripts/simulate-vps-bootstrap.sh",
+    "scripts/validate-repo.sh",
+    "scripts/verify-simulated-vps-bootstrap.py",
+    "stack/control/",
+    "stack/prototype-local/scripts/",
     "docs/architecture/cloud-agent-vps-simulation.md",
 )
 

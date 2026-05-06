@@ -114,6 +114,32 @@ workflow, test, or verifier. The first protection is visibility:
 - `scripts/agent-evidence-guard.py` reports protected verifier-path changes,
 - PR review should treat verifier changes and feature changes separately.
 
+## Protected-path review policy
+
+The repository carries `.github/CODEOWNERS` so GitHub can identify the owner for
+verifier, proof, deployment, and operator-control paths. In the current
+solo-owner workflow, branch protection keeps PRs and required Actions checks
+enforced, but required approving review is disabled because GitHub does not
+allow the PR author to approve their own PR. CODEOWNERS remains the durable
+ownership map and can be re-enabled as an enforced branch-protection gate when
+a second reviewer or separate bot/app author identity exists.
+
+The advisory evidence guard treats these paths as protected review surfaces:
+
+- GitHub workflows and CODEOWNERS
+- repo validation, environment doctor, evidence guard, and simulated VPS
+  verifier scripts
+- proof scripts and proof schemas
+- deployment/runbook scripts under `deploy/`
+- the operator CLI entrypoint `bin/1215`
+- the repo-owned control CLI under `stack/control/`
+- prototype bootstrap scripts under `stack/prototype-local/scripts/`
+
+When a PR touches any of those paths, `scripts/agent-evidence-guard.py` emits
+`REVIEW_REQUIRED` in its JSON artifact while still exiting successfully. The
+status is advisory: it does not replace branch protection, and it should be
+used to make verifier or deployment-surface edits obvious in review.
+
 Future hardening can run selected evaluators from a pinned trusted ref or a
 separate evaluator repository. For now, this gate prevents the common failure
 mode where an agent modifies production-ish code, changes the judge, draws its
