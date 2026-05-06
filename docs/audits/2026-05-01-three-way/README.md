@@ -1,8 +1,11 @@
 # Three-way audit — 2026-05-01
 
 One-time reality check comparing Studio54 docs, codebase, and the live VPS
-at 148.230.95.154. Tooling lives in `/audit/`; design lives in
-`/docs/superpowers/specs/2026-05-01-three-way-audit-design.md`.
+at 148.230.95.154.
+
+This directory is the frozen Studio54 audit result. The reusable audit tooling
+has moved out of this repo into the standalone audit project, so these files
+should be read as historical evidence rather than as an in-repo rerun workflow.
 
 Files in this directory:
 
