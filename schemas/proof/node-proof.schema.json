@@ -1,0 +1,319 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://studio54.local/schemas/proof/node-proof.schema.json",
+  "title": "Studio54 Node Proof",
+  "description": "Contract for a verifier-collected proof that a node bootstrap or validation run passed or failed with inspectable evidence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "git",
+    "target",
+    "redaction",
+    "compose",
+    "services",
+    "paperclip",
+    "hermes",
+    "memoryIsolation",
+    "traceability",
+    "artifacts",
+    "result"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "studio54.node-proof.v1"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "git": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha", "branch", "dirty"],
+      "properties": {
+        "sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{7,40}$"
+        },
+        "branch": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dirty": {
+          "type": "boolean"
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name", "host", "environment"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["simulation", "local-vm", "staging-vps", "live-vps"]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "host": {
+          "type": "string",
+          "minLength": 1
+        },
+        "environment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "nodeRole": {
+          "type": "string"
+        },
+        "operator": {
+          "type": "string"
+        }
+      }
+    },
+    "redaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "checked", "notes"],
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/checkStatus"
+        },
+        "checked": {
+          "type": "boolean"
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "compose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "command", "composeFiles", "services"],
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/checkStatus"
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1
+        },
+        "composeFiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "services": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "services": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/serviceStatus"
+      },
+      "minProperties": 1
+    },
+    "paperclip": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "companyId", "managerAgentId", "workerAgentIds", "proofSummary"],
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/checkStatus"
+        },
+        "companyId": {
+          "type": "string"
+        },
+        "managerAgentId": {
+          "type": "string"
+        },
+        "workerAgentIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "proofSummary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["parentIssue", "childIssues", "assignment", "comments", "finalStatus", "runawayChildren"],
+          "properties": {
+            "parentIssue": {
+              "$ref": "#/$defs/checkStatus"
+            },
+            "childIssues": {
+              "$ref": "#/$defs/checkStatus"
+            },
+            "assignment": {
+              "$ref": "#/$defs/checkStatus"
+            },
+            "comments": {
+              "$ref": "#/$defs/checkStatus"
+            },
+            "finalStatus": {
+              "$ref": "#/$defs/checkStatus"
+            },
+            "runawayChildren": {
+              "$ref": "#/$defs/checkStatus"
+            }
+          }
+        }
+      }
+    },
+    "hermes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "path", "mode"],
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/checkStatus"
+        },
+        "path": {
+          "type": "string",
+          "enum": ["hermes_local", "hermes-gateway", "host-hermes", "unknown"]
+        },
+        "mode": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "memoryIsolation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "checks"],
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/checkStatus"
+        },
+        "checks": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/checkStatus"
+          },
+          "minProperties": 1
+        }
+      }
+    },
+    "traceability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "ids"],
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/checkStatus"
+        },
+        "ids": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "paperclipRunId": {
+              "type": "string"
+            },
+            "hermesRunId": {
+              "type": "string"
+            },
+            "langfuseTraceId": {
+              "type": "string"
+            },
+            "paperclipIssueId": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "summary"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["PASS", "FAIL"]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  },
+  "$defs": {
+    "checkStatus": {
+      "type": "string",
+      "enum": ["PASS", "FAIL", "SKIP", "UNKNOWN"]
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "path", "kind"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["json", "log", "text", "directory", "other"]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "serviceStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/checkStatus"
+        },
+        "health": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
