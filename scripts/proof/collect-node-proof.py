@@ -21,7 +21,7 @@ DEFAULT_COMPOSE_FILE = "stack/prototype-local/docker-compose.substrate.yml"
 SECRET_PATTERNS = (
     re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
     re.compile(r"ghp_[A-Za-z0-9_]{20,}"),
-    re.compile(r"(?i)(api[_-]?key|secret|token|password)\s*=\s*[^\\s]+"),
+    re.compile(r"(?i)(api[_-]?key|secret|token|password)\s*=\s*\S+"),
 )
 
 

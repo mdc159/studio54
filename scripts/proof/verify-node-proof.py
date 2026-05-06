@@ -28,6 +28,10 @@ REQUIRED_TOP_LEVEL = {
     "result",
 }
 CHECK_STATUSES = {"PASS", "FAIL", "SKIP", "UNKNOWN"}
+TARGET_KINDS = {"simulation", "local-vm", "staging-vps", "live-vps"}
+HERMES_PATHS = {"hermes_local", "hermes-gateway", "host-hermes", "unknown"}
+ARTIFACT_KINDS = {"json", "log", "text", "directory", "other"}
+PAPERCLIP_PROOF_KEYS = {"parentIssue", "childIssues", "assignment", "comments", "finalStatus", "runawayChildren"}
 
 
 def sha256(path: Path) -> str:
@@ -75,10 +79,65 @@ def validate_required(proof: dict[str, Any], errors: list[str]) -> None:
         errors.append("schemaVersion must be studio54.node-proof.v1")
 
 
+def require_non_empty_string(section: dict[str, Any], key: str, name: str, errors: list[str]) -> None:
+    if not isinstance(section.get(key), str) or not section[key]:
+        errors.append(f"{name}.{key} must be a non-empty string")
+
+
+def require_string_array(section: dict[str, Any], key: str, name: str, errors: list[str]) -> None:
+    value = section.get(key)
+    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+        errors.append(f"{name}.{key} must be an array of strings")
+
+
+def validate_git_and_target(proof: dict[str, Any], errors: list[str]) -> None:
+    git = require_object(proof.get("git"), "git", errors)
+    require_non_empty_string(git, "sha", "git", errors)
+    require_non_empty_string(git, "branch", "git", errors)
+    if not isinstance(git.get("dirty"), bool):
+        errors.append("git.dirty must be a boolean")
+
+    target = require_object(proof.get("target"), "target", errors)
+    if target.get("kind") not in TARGET_KINDS:
+        errors.append(f"target.kind must be one of {sorted(TARGET_KINDS)}")
+    for key in ("name", "host", "environment"):
+        require_non_empty_string(target, key, "target", errors)
+
+
 def validate_component_statuses(proof: dict[str, Any], errors: list[str]) -> None:
     for key in ("redaction", "compose", "paperclip", "hermes", "memoryIsolation", "traceability"):
         section = require_object(proof.get(key), key, errors)
         require_status(section.get("status"), f"{key}.status", errors)
+
+    redaction = require_object(proof.get("redaction"), "redaction", errors)
+    if not isinstance(redaction.get("checked"), bool):
+        errors.append("redaction.checked must be a boolean")
+    if not isinstance(redaction.get("notes"), list) or any(not isinstance(item, str) for item in redaction.get("notes", [])):
+        errors.append("redaction.notes must be an array of strings")
+
+    compose = require_object(proof.get("compose"), "compose", errors)
+    require_non_empty_string(compose, "command", "compose", errors)
+    require_string_array(compose, "composeFiles", "compose", errors)
+    require_string_array(compose, "services", "compose", errors)
+
+    paperclip = require_object(proof.get("paperclip"), "paperclip", errors)
+    for key in ("companyId", "managerAgentId"):
+        if not isinstance(paperclip.get(key), str):
+            errors.append(f"paperclip.{key} must be a string")
+    require_string_array(paperclip, "workerAgentIds", "paperclip", errors)
+    proof_summary = require_object(paperclip.get("proofSummary"), "paperclip.proofSummary", errors)
+    missing_summary = sorted(PAPERCLIP_PROOF_KEYS - set(proof_summary))
+    if missing_summary:
+        errors.append(f"paperclip.proofSummary missing keys: {', '.join(missing_summary)}")
+    for key in PAPERCLIP_PROOF_KEYS & set(proof_summary):
+        require_status(proof_summary.get(key), f"paperclip.proofSummary.{key}", errors)
+
+    hermes = require_object(proof.get("hermes"), "hermes", errors)
+    if hermes.get("path") not in HERMES_PATHS:
+        errors.append(f"hermes.path must be one of {sorted(HERMES_PATHS)}")
+    require_non_empty_string(hermes, "mode", "hermes", errors)
+    if "runIds" in hermes:
+        require_string_array(hermes, "runIds", "hermes", errors)
 
     memory = require_object(proof.get("memoryIsolation"), "memoryIsolation", errors)
     checks = memory.get("checks")
@@ -130,6 +189,8 @@ def validate_artifacts(proof: dict[str, Any], proof_path: Path, errors: list[str
         for key in ("name", "path", "kind"):
             if not isinstance(item.get(key), str) or not item[key]:
                 errors.append(f"artifacts[{index}].{key} must be a non-empty string")
+        if isinstance(item.get("kind"), str) and item["kind"] not in ARTIFACT_KINDS:
+            errors.append(f"artifacts[{index}].kind must be one of {sorted(ARTIFACT_KINDS)}")
         if not isinstance(item.get("path"), str):
             continue
         path = resolve_artifact_path(item["path"], proof_path)
@@ -167,6 +228,7 @@ def main() -> int:
     raw = load_json(proof_path)
     proof = require_object(raw, "proof", errors)
     validate_required(proof, errors)
+    validate_git_and_target(proof, errors)
     validate_component_statuses(proof, errors)
     validate_traceability(proof, errors)
     validate_artifacts(proof, proof_path, errors)
