@@ -123,11 +123,11 @@ def select_parent_issue(
 
     candidates = list_issues(client, company_id, {"assigneeAgentId": manager_agent_id})
     candidates.sort(key=issue_created_at, reverse=True)
-    for candidate in candidates:
-        children = list_issues(client, company_id, {"parentId": issue_id(candidate)})
-        if children:
-            return candidate, children
-    raise RuntimeError("could not infer parent issue: no manager-assigned issue with child issues found")
+    if not candidates:
+        raise RuntimeError("could not infer parent issue: no manager-assigned issues found")
+    parent = candidates[0]
+    children = list_issues(client, company_id, {"parentId": issue_id(parent)})
+    return parent, children
 
 
 def collect_run_ids(*collections: list[dict[str, Any]]) -> list[str]:
