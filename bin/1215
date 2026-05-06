@@ -10,6 +10,8 @@
 #   logs      — compose logs OR `journalctl --user` based on service
 #   smoke     — exposure + canary + gate_shared_core checks
 #   doctor    — prerequisite / layout check
+#   proof     — collect and verify repo-owned proof artifacts
+#   company   — bootstrap Paperclip/Hermes companies from templates
 #   targets   — list architecture targets
 #   services  — list services for one target
 #   compose   — raw docker-compose passthrough for a node manifest
