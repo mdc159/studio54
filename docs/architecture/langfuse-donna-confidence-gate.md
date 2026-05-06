@@ -1,6 +1,11 @@
 # Donna Langfuse Confidence Gate
 
-This is the exhaustive handoff plan for Donna to validate PR #5 before it is
+Historical note: PR #5 merged on 2026-05-03 as
+<https://github.com/mdc159/studio54/pull/5>. This document is retained as the
+validation record and as a reusable confidence-gate template for future
+traceability work.
+
+This was the exhaustive handoff plan for Donna to validate PR #5 before it was
 merged. It follows the project operating model from this repo and the adjacent
 `agent-knowledge-exchange` repo:
 

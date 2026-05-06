@@ -203,9 +203,10 @@ of `stack/prototype-local/.env`).
 
 Explicit list of things referenced by `north-star.md` but absent today:
 
-- **`stack/services/hermes-gateway/`** — no directory, no daemon code, no
-  systemd unit, no Unix domain socket contract. The "host-only Hermes
-  gateway" is called out in `north-star.md` but not implemented.
+- **`stack/services/hermes-gateway/`** — directory, daemon code, tests,
+  installer, systemd user unit, and Unix domain socket contract are now present
+  as repo-owned implementation scaffolding. It is not the active Paperclip
+  execution path; the proven path remains direct per-company `hermes_local`.
 - **`orchestrator-ceo` Hermes profile** — no `HERMES_HOME` layout, no
   profile config, no skills directory. The `setup_hermes_honcho_paperclip.py`
   smoke test runs Hermes against a default profile only.
