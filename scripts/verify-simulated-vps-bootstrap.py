@@ -25,6 +25,15 @@ def require(condition: bool, message: str) -> None:
         fail(message)
 
 
+def canary(name: str, status: bool, expected: object, observed: object) -> dict:
+    return {
+        "name": name,
+        "status": "PASS" if status else "FAIL",
+        "expected": expected,
+        "observed": observed,
+    }
+
+
 def verify_company(root: Path, company_id: str, agent_id: str, host_home: Path) -> dict:
     hermes_home = root / "paperclip" / "instances" / "default" / "companies" / company_id / "hermes-home"
     require(hermes_home.exists(), f"missing Hermes home for {company_id}: {hermes_home}")
@@ -63,6 +72,57 @@ def verify_company(root: Path, company_id: str, agent_id: str, host_home: Path) 
     }
 
 
+def build_memory_canaries(companies: list[dict], host_home: Path) -> dict:
+    company_homes = [company["hermesHome"] for company in companies]
+    company_workspaces = {
+        company["companyId"]: company["workspace"]
+        for company in companies
+    }
+    company_ai_peers = {
+        company["companyId"]: company["aiPeer"]
+        for company in companies
+    }
+    expected_ai_peers = {
+        company["companyId"]: f"paperclip-agent-{company['agentId']}"
+        for company in companies
+    }
+
+    checks = [
+        canary(
+            "companyHomesSeparateFromEachOther",
+            len(company_homes) == len(set(company_homes)),
+            "all company Hermes homes are unique",
+            company_homes,
+        ),
+        canary(
+            "hostHermesHomeSeparateFromCompanyHomes",
+            str(host_home) not in set(company_homes),
+            f"host Hermes home {host_home} is not any Paperclip company Hermes home",
+            {
+                "hostHermesHome": str(host_home),
+                "companyHermesHomes": company_homes,
+            },
+        ),
+        canary(
+            "honchoWorkspaceEqualsCompanyId",
+            all(company["workspace"] == company["companyId"] for company in companies),
+            {company["companyId"]: company["companyId"] for company in companies},
+            company_workspaces,
+        ),
+        canary(
+            "honchoAiPeerEqualsPaperclipAgentId",
+            all(company["aiPeer"] == expected_ai_peers[company["companyId"]] for company in companies),
+            expected_ai_peers,
+            company_ai_peers,
+        ),
+    ]
+
+    return {
+        "status": "PASS" if all(check["status"] == "PASS" for check in checks) else "FAIL",
+        "checks": checks,
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, required=True)
@@ -81,6 +141,8 @@ def main(argv: list[str] | None = None) -> int:
 
     require(companies[0]["workspace"] != companies[1]["workspace"], "company workspaces are not isolated")
     require(companies[0]["hermesHome"] != companies[1]["hermesHome"], "company Hermes homes are not isolated")
+    memory_canaries = build_memory_canaries(companies, host_home)
+    require(memory_canaries["status"] == "PASS", "one or more memory canaries failed")
 
     report = {
         "schema": "studio54.simulated-vps-bootstrap.v1",
@@ -94,6 +156,7 @@ def main(argv: list[str] | None = None) -> int:
             "honchoAiPeerEqualsPaperclipAgentId": True,
             "noRealVpsMutation": True,
         },
+        "memoryCanaries": memory_canaries,
         "companies": companies,
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
