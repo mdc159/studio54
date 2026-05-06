@@ -32,10 +32,9 @@ The current node shape combines:
   cross-service and cross-node coordination.
 
 The active Paperclip execution contract is direct per-company `hermes_local`.
-The current `main` branch already carries run ID correlation between
-Paperclip, Hermes, and Langfuse. A separate integration branch, PR #5, is being
-reviewed to incorporate the fuller Langfuse traceability knowledge, including
-prompt/output capture policy and the expanded operator documentation.
+The current `main` branch carries run ID correlation between Paperclip, Hermes,
+and Langfuse, plus the Langfuse traceability contract, prompt/output capture
+policy, and operator documentation merged in PR #5.
 
 ## Why It Exists
 
@@ -64,13 +63,11 @@ The current proven target is a private-first node:
 - outer/operator Hermes remains separate from Paperclip-internal Hermes runs
 - Langfuse metadata tracing is available for OpenAI-compatible Hermes model
   calls
-- fuller Langfuse content capture and traceability documentation are pending in
-  PR #5
+- fuller Langfuse content capture is available behind the explicit
+  `LANGFUSE_CAPTURE_CONTENT=true` opt-in
 
-PR #5 is the clean Langfuse traceability integration branch. It supersedes the
-stale `langfuse-sidecar` PR and is intended to merge the additional Langfuse
-knowledge into `main` after the broader Hermes/Paperclip confidence gate
-completes.
+PR #5 merged the clean Langfuse traceability integration into `main` and
+superseded the stale `langfuse-sidecar` PR.
 
 ## Repo Layout
 
@@ -116,10 +113,12 @@ Start here:
 - [VPS Install Runbook](deploy/vps/INSTALL.md) is the operator-oriented setup
   path.
 
-The fuller Langfuse integration narrative and traceability contract are pending
-in PR #5. Until that branch merges, use [Current State](docs/architecture/current-state.md)
-and [Paperclip `hermes_local` Contract](docs/architecture/paperclip-hermes-local-contract.md)
-as the canonical docs on `main`.
+The fuller Langfuse integration narrative and traceability contract now live in
+[Langfuse Integration Status](docs/architecture/langfuse-integration-status.md)
+and [Langfuse Traceability](docs/architecture/langfuse-traceability.md). Use
+[Current State](docs/architecture/current-state.md) and
+[Paperclip `hermes_local` Contract](docs/architecture/paperclip-hermes-local-contract.md)
+for the current execution baseline.
 
 Historical or aspirational design docs still exist, but the reference-node and
 contract docs above are the practical starting point for current work.
@@ -155,10 +154,10 @@ stack:
 - `LANGFUSE_TRACE_ID`
 
 On `main`, this correlation exists for the active Paperclip/Hermes path and
-Langfuse metadata-only tracing. PR #5 is the branch that incorporates the full
-traceability work: OpenAI-compatible request messages as Langfuse generation
-input, final assistant text as generation output, content-capture controls,
-truncation metadata, and operator run-record expectations.
+Langfuse metadata tracing. The PR #5 traceability work also documents
+OpenAI-compatible request messages as Langfuse generation input, final
+assistant text as generation output, content-capture controls, truncation
+metadata, and operator run-record expectations.
 
 Langfuse is downstream observability. It is not the source of truth for task
 state, approvals, company state, artifacts, or memory. Paperclip owns company
@@ -201,9 +200,9 @@ deployment, contracts, and operational glue.
 
 ## Current Cleanup Goal
 
-The immediate cleanup goal is to merge PR #5, the Langfuse traceability branch,
-into one canonical branch after the broader Hermes/Paperclip test gate passes,
-then retire stale sidecar state.
+The immediate cleanup goal is to keep `main` as the canonical baseline after
+the Langfuse traceability branch merged, retire stale sidecar state, and move
+new work through verifier-first PRs.
 
 That should leave:
 

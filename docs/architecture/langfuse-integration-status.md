@@ -1,8 +1,8 @@
 # Langfuse Integration Status
 
 This document explains where the direct `hermes_local` Langfuse model-call
-tracing slice stands, what we plan to do next, and what we expect to gain from
-finishing the cleanup. It is the plain-language orientation layer. For the
+tracing slice stands after PR #5 merged, what remains next, and what we gained
+from the cleanup. It is the plain-language orientation layer. For the
 exact trace ID, env var, ingestion, and content-capture contract, see
 [Langfuse Traceability](langfuse-traceability.md).
 
@@ -17,10 +17,10 @@ calls, tools, and agent execution. The broker/continuity plane remains the
 durable cross-system event spine. Langfuse records evidence about model calls
 so humans and future evaluation workflows can inspect them.
 
-The stale `langfuse-sidecar` work has been replaced rather than rebased. PR #1
-is closed as superseded. PR #5 is the clean replacement branch from current
-`main`, and it ports only the Langfuse traceability work needed for the active
-direct `hermes_local` path.
+The stale `langfuse-sidecar` work was replaced rather than rebased. PR #1 is
+closed as superseded, and PR #5 merged the clean traceability slice into
+`main`. The merged work is intentionally scoped to the Langfuse traceability
+needed for the active direct `hermes_local` path.
 
 The direct Paperclip `hermes_local` path now has one run identity across the
 stack:
@@ -41,24 +41,24 @@ assistant-output capture is explicit opt-in because request messages can carry
 system prompts, tool outputs, terminal output, logs, or accidentally pasted
 secrets.
 
-This is not full system-wide observability. PR #5 does not yet trace all tool
-calls, every API boundary, broker events, gateway lifecycle, n8n, Honcho,
-memory events, or artifact lineage.
+This is not full system-wide observability. The merged PR #5 slice does not yet
+trace all tool calls, every API boundary, broker events, gateway lifecycle,
+n8n, Honcho, memory events, or artifact lineage.
 
 ## What We Plan To Do
 
-The immediate plan is to merge PR #5 as the single canonical implementation
-after the exhaustive Hermes and Paperclip confidence gate completes. The old
-sidecar branch should not be force-rebased, reopened, or replayed. Once PR #5
-is merged, `main` becomes the only branch needed for this direct-path
-model-call tracing slice.
+PR #5 is now the canonical implementation for this direct-path model-call
+tracing slice on `main`. The old sidecar branch should not be force-rebased,
+reopened, or replayed.
 
-Roadmap Phase G remains larger than PR #5. Phase G still needs the
-gateway/broker/Hermes path to normalize a canonical `run_id`, stamp broker
-events with `metadata_json.langfuse_trace_id`, nest all spans under the same
-canonical trace, and expose a Langfuse view where `trace_id == run_id`.
+Roadmap Phase G remains larger than the merged PR #5 slice. Phase G still
+needs the gateway/broker/Hermes path to normalize a canonical `run_id`, stamp
+broker events with `metadata_json.langfuse_trace_id`, nest all spans under the
+same canonical trace, and expose a Langfuse view where
+`trace_id == run_id`.
 
-The merge gate is broader than the initial Langfuse unit slice. It should run:
+Future observability work should continue to use the confidence-gate pattern
+that was used for PR #5. For comparable traceability changes, run:
 
 - targeted Hermes Langfuse probe tests
 - full Hermes non-integration and integration pytest runs
@@ -69,10 +69,10 @@ The merge gate is broader than the initial Langfuse unit slice. It should run:
 - live direct `hermes_local` one-agent and manager-worker smoke runs when
   Paperclip, Hermes, Langfuse, and model credentials are available
 
-The Donna-executable confidence gate is documented in
+The historical Donna-executable confidence gate is documented in
 [Donna Langfuse Confidence Gate](langfuse-donna-confidence-gate.md). That
-document is the operational checklist for PR #5 validation on the VPS and the
-template for the matching Linear project/issues.
+document records the PR #5 validation plan and remains a template for future
+matching Linear project/issues.
 
 Any live or external test that cannot run must be recorded as a
 missing-prerequisite skip, not silently treated as a pass. Any deterministic
@@ -80,8 +80,8 @@ local failure should block the merge until it is understood and fixed.
 
 After merge, cleanup is straightforward:
 
-- delete `origin/integration/langfuse-traceability`
-- delete the local `integration/langfuse-traceability` branch
+- delete `origin/integration/langfuse-traceability` if it still exists
+- delete the local `integration/langfuse-traceability` branch if it still exists
 - retire the stale local `studio54-langfuse` checkout after confirming it has
   no unpushed work that still matters
 - keep PR #1 closed as superseded by PR #5
@@ -114,7 +114,7 @@ requiring agents or humans to reconstruct history from logs.
 
 The final gain is repo hygiene. The stale gateway-first sidecar branch is
 retired, the active direct `hermes_local` path is documented, and the
-Langfuse direct-path tracing slice becomes one merged branch with one canonical
+Langfuse direct-path tracing slice now lives on `main` with one canonical
 contract.
 
 ## Follow-Up: Development-Wide Observability Plane
