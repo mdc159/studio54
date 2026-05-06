@@ -5,6 +5,7 @@ import json
 import subprocess
 import shutil
 import sys
+from pathlib import Path
 
 from .broker import apply_broker_sql, broker_sql_files, render_broker_sql
 from .compose import docker_compose_args, target_compose_files, target_env_file
@@ -135,6 +136,30 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Propagate LANGFUSE_* vars into hermes-zero's .env (off by default).",
     )
+
+    proof = subparsers.add_parser("proof", help="Run proof collection and verification commands.")
+    proof_subparsers = proof.add_subparsers(dest="proof_command", required=True)
+    proof_node = proof_subparsers.add_parser(
+        "node",
+        help="Collect and verify a node proof using the current repo-owned verifier scripts.",
+    )
+    proof_node.add_argument("--json", action="store_true", dest="as_json")
+    proof_node.add_argument("--output-dir", type=Path, default=None)
+    proof_node.add_argument(
+        "--target-kind",
+        choices=["simulation", "local-vm", "staging-vps", "live-vps"],
+        default="simulation",
+    )
+    proof_node.add_argument("--target-name", default="simulated-vps-bootstrap")
+    proof_node.add_argument("--environment", default="local")
+
+    company = subparsers.add_parser("company", help="Run company operator commands.")
+    company_subparsers = company.add_subparsers(dest="company_command", required=True)
+    company_bootstrap = company_subparsers.add_parser(
+        "bootstrap",
+        help="Bootstrap a Paperclip/Hermes company from a JSON template.",
+    )
+    company_bootstrap.add_argument("--template-file", type=Path, required=True)
 
     return parser
 
@@ -347,9 +372,126 @@ def cmd_seed_hermes(*, force: bool, enable_langfuse: bool) -> int:
     return result.returncode
 
 
+def _script_path(*parts: str) -> Path:
+    return resolve_paths().repo_root.joinpath(*parts)
+
+
+def _load_json_or_error(text: str) -> dict[str, object]:
+    try:
+        value = json.loads(text)
+    except json.JSONDecodeError as exc:
+        return {"status": "FAIL", "errors": [f"failed to parse verifier output: {exc}"]}
+    if not isinstance(value, dict):
+        return {"status": "FAIL", "errors": ["verifier output must be a JSON object"]}
+    return value
+
+
+def cmd_proof_node(
+    *,
+    as_json: bool,
+    output_dir: Path | None,
+    target_kind: str,
+    target_name: str,
+    environment: str,
+) -> int:
+    collect_script = _script_path("scripts", "proof", "collect-node-proof.py")
+    verify_script = _script_path("scripts", "proof", "verify-node-proof.py")
+    if not collect_script.exists():
+        print(f"error: missing {collect_script}", file=sys.stderr)
+        return 2
+    if not verify_script.exists():
+        print(f"error: missing {verify_script}", file=sys.stderr)
+        return 2
+
+    collect_cmd = [
+        sys.executable,
+        str(collect_script),
+        "--target-kind",
+        target_kind,
+        "--target-name",
+        target_name,
+        "--environment",
+        environment,
+    ]
+    if output_dir is not None:
+        collect_cmd.extend(["--output-dir", str(output_dir)])
+
+    collect = subprocess.run(
+        collect_cmd,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    proof_path_text = collect.stdout.strip().splitlines()[-1] if collect.stdout.strip() else ""
+    proof_path = Path(proof_path_text) if proof_path_text else None
+    verify = None
+    verification: dict[str, object] = {
+        "status": "FAIL",
+        "errors": ["collector did not report a proof path"],
+    }
+    if proof_path is not None and proof_path.exists():
+        verify = subprocess.run(
+            [sys.executable, str(verify_script), str(proof_path)],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        verification = _load_json_or_error(verify.stdout)
+
+    status = (
+        "PASS"
+        if collect.returncode == 0
+        and verify is not None
+        and verify.returncode == 0
+        and verification.get("status") == "PASS"
+        else "FAIL"
+    )
+    report = {
+        "schema": "studio54.proof-node-command.v1",
+        "status": status,
+        "proofPath": str(proof_path) if proof_path is not None else "",
+        "collector": {"returncode": collect.returncode},
+        "verification": verification,
+    }
+
+    if as_json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        if collect.stdout:
+            print(collect.stdout, end="")
+        if collect.stderr:
+            print(collect.stderr, end="", file=sys.stderr)
+        if verify is not None and verify.stdout:
+            print(verify.stdout, end="")
+        if verify is not None and verify.stderr:
+            print(verify.stderr, end="", file=sys.stderr)
+    return 0 if status == "PASS" else 1
+
+
+def cmd_company_bootstrap(template_file: Path, bootstrap_args: list[str]) -> int:
+    script = _script_path(
+        "stack",
+        "prototype-local",
+        "scripts",
+        "bootstrap_paperclip_hermes_company.py",
+    )
+    if not script.exists():
+        print(f"error: missing {script}", file=sys.stderr)
+        return 2
+    cmd = [sys.executable, str(script), "--template-file", str(template_file), *bootstrap_args]
+    result = subprocess.run(cmd)
+    return result.returncode
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
-    args = parser.parse_args(argv)
+    args, unknown_args = parser.parse_known_args(argv)
+    if unknown_args and not (
+        args.command == "company" and args.company_command == "bootstrap"
+    ):
+        parser.error(f"unrecognized arguments: {' '.join(unknown_args)}")
 
     if args.command == "doctor":
         return cmd_doctor()
@@ -387,6 +529,18 @@ def main(argv: list[str] | None = None) -> int:
         return lifecycle.do_smoke(as_json=args.as_json, skip_gate=args.skip_gate)
     if args.command == "seed-hermes":
         return cmd_seed_hermes(force=args.force, enable_langfuse=args.enable_langfuse)
+    if args.command == "proof":
+        if args.proof_command == "node":
+            return cmd_proof_node(
+                as_json=args.as_json,
+                output_dir=args.output_dir,
+                target_kind=args.target_kind,
+                target_name=args.target_name,
+                environment=args.environment,
+            )
+    if args.command == "company":
+        if args.company_command == "bootstrap":
+            return cmd_company_bootstrap(args.template_file, unknown_args)
 
     parser.error(f"unknown command: {args.command}")
     return 2
