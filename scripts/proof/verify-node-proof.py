@@ -105,22 +105,24 @@ def validate_git_and_target(proof: dict[str, Any], errors: list[str]) -> None:
 
 
 def validate_component_statuses(proof: dict[str, Any], errors: list[str]) -> None:
+    sections: dict[str, dict[str, Any]] = {}
     for key in ("redaction", "compose", "paperclip", "hermes", "memoryIsolation", "traceability"):
         section = require_object(proof.get(key), key, errors)
+        sections[key] = section
         require_status(section.get("status"), f"{key}.status", errors)
 
-    redaction = require_object(proof.get("redaction"), "redaction", errors)
+    redaction = sections["redaction"]
     if not isinstance(redaction.get("checked"), bool):
         errors.append("redaction.checked must be a boolean")
     if not isinstance(redaction.get("notes"), list) or any(not isinstance(item, str) for item in redaction.get("notes", [])):
         errors.append("redaction.notes must be an array of strings")
 
-    compose = require_object(proof.get("compose"), "compose", errors)
+    compose = sections["compose"]
     require_non_empty_string(compose, "command", "compose", errors)
     require_string_array(compose, "composeFiles", "compose", errors)
     require_string_array(compose, "services", "compose", errors)
 
-    paperclip = require_object(proof.get("paperclip"), "paperclip", errors)
+    paperclip = sections["paperclip"]
     for key in ("companyId", "managerAgentId"):
         if not isinstance(paperclip.get(key), str):
             errors.append(f"paperclip.{key} must be a string")
@@ -132,14 +134,14 @@ def validate_component_statuses(proof: dict[str, Any], errors: list[str]) -> Non
     for key in PAPERCLIP_PROOF_KEYS & set(proof_summary):
         require_status(proof_summary.get(key), f"paperclip.proofSummary.{key}", errors)
 
-    hermes = require_object(proof.get("hermes"), "hermes", errors)
+    hermes = sections["hermes"]
     if hermes.get("path") not in HERMES_PATHS:
         errors.append(f"hermes.path must be one of {sorted(HERMES_PATHS)}")
     require_non_empty_string(hermes, "mode", "hermes", errors)
     if "runIds" in hermes:
         require_string_array(hermes, "runIds", "hermes", errors)
 
-    memory = require_object(proof.get("memoryIsolation"), "memoryIsolation", errors)
+    memory = sections["memoryIsolation"]
     checks = memory.get("checks")
     if not isinstance(checks, dict) or not checks:
         errors.append("memoryIsolation.checks must be a non-empty object")
@@ -225,7 +227,17 @@ def main() -> int:
 
     errors: list[str] = []
     proof_path = args.proof.resolve()
-    raw = load_json(proof_path)
+    try:
+        raw = load_json(proof_path)
+    except ValueError as exc:
+        report = {
+            "schema": "studio54.node-proof-verification.v1",
+            "proof": str(proof_path),
+            "status": "FAIL",
+            "errors": [str(exc)],
+        }
+        print(json.dumps(report, indent=2, sort_keys=True))
+        return 1
     proof = require_object(raw, "proof", errors)
     validate_required(proof, errors)
     validate_git_and_target(proof, errors)

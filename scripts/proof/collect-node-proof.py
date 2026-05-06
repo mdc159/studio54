@@ -179,7 +179,13 @@ def main() -> int:
     compose, compose_artifacts = collect_compose(output_dir)
 
     simulation_path = ROOT / ".artifacts" / "vps-simulation" / "simulated-vps-bootstrap-report.json"
-    simulation_report = json.loads(simulation_path.read_text()) if simulation_path.exists() else None
+    simulation_parse_error = None
+    simulation_report = None
+    if simulation_path.exists():
+        try:
+            simulation_report = json.loads(simulation_path.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            simulation_parse_error = f"failed to parse {simulation_path}: {exc}"
     command_artifacts = [artifact(result["name"], result["log"], "log") for result in command_results]
     artifacts = command_artifacts + compose_artifacts
     if simulation_path.exists():
@@ -190,6 +196,8 @@ def main() -> int:
     redaction = check_redaction([Path(item["path"]) if Path(item["path"]).is_absolute() else ROOT / item["path"] for item in artifacts])
     command_status = "PASS" if all(result["returncode"] == 0 for result in command_results) else "FAIL"
     memory_isolation = build_memory_isolation(simulation_report)
+    if simulation_parse_error:
+        memory_isolation["checks"]["simulationReportJsonValid"] = "FAIL"
     result_status = "PASS" if command_status == "PASS" and compose["status"] in {"PASS", "SKIP"} and memory_isolation["status"] == "PASS" and redaction["status"] == "PASS" else "FAIL"
 
     proof = {
