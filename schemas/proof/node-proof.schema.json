@@ -218,7 +218,7 @@
     "traceability": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["status", "ids"],
+      "required": ["status"],
       "properties": {
         "status": {
           "$ref": "#/$defs/checkStatus"
@@ -245,6 +245,7 @@
     },
     "artifacts": {
       "type": "array",
+      "minItems": 1,
       "items": {
         "$ref": "#/$defs/artifact"
       }
