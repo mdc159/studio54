@@ -1,0 +1,18 @@
+# Default ownership for repo changes.
+* @mdc159
+
+# Verifier, proof, deployment, and operator-control surfaces deserve explicit
+# review because they can change what counts as evidence or mutate nodes.
+.github/workflows/ @mdc159
+.github/CODEOWNERS @mdc159
+scripts/agent-evidence-guard.py @mdc159
+scripts/doctor-agent-env.sh @mdc159
+scripts/validate-repo.sh @mdc159
+scripts/simulate-vps-bootstrap.sh @mdc159
+scripts/verify-simulated-vps-bootstrap.py @mdc159
+scripts/proof/ @mdc159
+schemas/ @mdc159
+deploy/ @mdc159
+bin/1215 @mdc159
+stack/control/ @mdc159
+stack/prototype-local/scripts/ @mdc159
