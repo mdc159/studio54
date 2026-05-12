@@ -240,7 +240,23 @@ run_cli_checks() {
 
   if [[ "$with_up" == 1 ]]; then
     log "Starting prototype-local stack"
-    ./bin/1215 up --target prototype-local
+    if ! ./bin/1215 up --target prototype-local; then
+      log "Stack start reported failure; allowing delayed health checks to settle"
+      sleep 45
+      local running_count
+      running_count=$(docker ps --filter 'name=1215-prototype-local' --format '{{.Names}}' | wc -l)
+      if [[ "$running_count" -lt 10 ]]; then
+        echo "error: only ${running_count} Studio54 containers are running after delayed settle" >&2
+        ./bin/1215 status --target prototype-local || true
+        exit 1
+      fi
+      if docker ps --filter 'name=1215-prototype-local' --filter 'health=unhealthy' --format '{{.Names}}' | grep -q .; then
+        echo "error: unhealthy Studio54 containers remain after delayed settle" >&2
+        docker ps --filter 'name=1215-prototype-local' --filter 'health=unhealthy' --format '  {{.Names}} {{.Status}}' >&2
+        ./bin/1215 status --target prototype-local || true
+        exit 1
+      fi
+    fi
     ./bin/1215 status --target prototype-local
   fi
 
