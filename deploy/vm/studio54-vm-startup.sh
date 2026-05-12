@@ -257,7 +257,11 @@ run_cli_checks() {
         exit 1
       fi
     fi
-    ./bin/1215 status --target prototype-local
+    # status currently includes host-native user units that may be intentionally
+    # absent in a disposable compose-only VM rehearsal. We have already failed
+    # above for too few containers or unhealthy compose services, so print the
+    # full table without letting missing user units make this wrapper fail.
+    ./bin/1215 status --target prototype-local || true
   fi
 
   if [[ "$with_smoke" == 1 ]]; then
