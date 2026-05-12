@@ -43,7 +43,43 @@ manually scrub the VM back to a clean state.
 
 ## Current intended flow
 
-From the repo root on the VM:
+The fastest rehearsal path is the idempotent startup script:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mdc159/studio54/main/deploy/vm/studio54-vm-startup.sh \
+  -o /tmp/studio54-vm-startup.sh
+sudo bash /tmp/studio54-vm-startup.sh --branch main
+```
+
+For a local development branch or copied checkout, run the checked-in script
+instead:
+
+```bash
+sudo bash deploy/vm/studio54-vm-startup.sh \
+  --repo https://github.com/mdc159/studio54.git \
+  --branch main \
+  --dir /opt/studio54-bootstrap
+```
+
+Default behavior is conservative: install host prerequisites, clone/update the
+repo, create/project runtime env files, and run `./bin/1215 doctor`. It does
+not start the full container stack unless requested. The script checks outbound
+internet first because apt, git, uv/PyPI, and Docker image pulls all require VM
+egress; SSH reachability from the host is not sufficient.
+
+Bring the prototype stack up during a rehearsal pass:
+
+```bash
+sudo bash deploy/vm/studio54-vm-startup.sh --with-up
+```
+
+Use a destructive reset pass only after taking a VM snapshot:
+
+```bash
+sudo bash deploy/vm/studio54-vm-startup.sh --reset-stack --with-smoke
+```
+
+Manual equivalent from the repo root on the VM:
 
 ```bash
 cp .env.example .env
@@ -56,9 +92,9 @@ That projects the canonical repo-root env contract into:
 - `stack/prototype-local/.env`
 
 Current reality:
-
 - the root `.env` is the operator control file
 - the stack-local `.env` is still the file consumed by Docker Compose
+
 
 ## VM versus fresh VPS
 
