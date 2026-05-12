@@ -250,9 +250,11 @@ run_cli_checks() {
         ./bin/1215 status --target prototype-local || true
         exit 1
       fi
-      if docker ps --filter 'name=1215-prototype-local' --filter 'health=unhealthy' --format '{{.Names}}' | grep -q .; then
+      local unhealthy_containers
+      unhealthy_containers=$(docker ps --filter 'name=1215-prototype-local' --filter 'health=unhealthy' --format '{{.Names}} {{.Status}}' || true)
+      if [[ -n "$unhealthy_containers" ]]; then
         echo "error: unhealthy Studio54 containers remain after delayed settle" >&2
-        docker ps --filter 'name=1215-prototype-local' --filter 'health=unhealthy' --format '  {{.Names}} {{.Status}}' >&2
+        printf '  %s\n' "$unhealthy_containers" >&2
         ./bin/1215 status --target prototype-local || true
         exit 1
       fi
