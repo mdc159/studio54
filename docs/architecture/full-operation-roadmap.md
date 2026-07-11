@@ -212,6 +212,14 @@ be proven separately.
 
 ## Phase 4 — Paperclip Work Routing
 
+> **Current execution plan:** The responsibility split and the Kanban-coordinated
+> proof sequence are now defined in
+> [Orchestration Responsibility Model](orchestration-responsibility-model.md) and
+> [Kanban-Coordinated Paperclip Proof Program](../plans/2026-07-11-kanban-paperclip-proof-program.md).
+> Hermes Kanban coordinates host-local proof execution and replaces manual
+> message ferrying; Paperclip remains authoritative for company state; n8n is
+> introduced only for deterministic routing after the core canary is green.
+
 **Objective:** Turn the grid into real productive flow, not just remote terminal management.
 
 **Operating rule:** GitHub/Linear/Paperclip own work state; tmux/SSH only provide runtime access.
