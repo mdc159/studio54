@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -118,6 +120,7 @@ def build_tasks() -> list[dict[str, Any]]:
         "Obtain explicit human approval for disposable Paperclip canary",
         "human-board",
         parents=["synthesize-readiness"],
+        mutation_class="canary",
         acceptance=[
             "approved company name recorded",
             "positive mutation budget recorded",
@@ -208,35 +211,51 @@ def build_tasks() -> list[dict[str, Any]]:
         evidence=["final proof JSON", "verification report", "production go-no-go recommendation"],
     )
     productive = task(
-        "pilot-1215-research",
-        "Run one internal 1215 archive-to-campaign research brief",
-        "victoria-research",
+        "pilot-1215-inventory",
+        "Generate one redacted 1215 current-state inventory",
+        "proof-engineer",
         parents=["approval-gate", "verify-canary"],
         mutation_class="canary",
         estimated_mutations=2,
         acceptance=[
-            "one useful evidence-backed internal brief accepted",
-            "no publication, performer outreach, spending, or irreversible action",
-            "operator effort and handoff metrics captured",
+            "one useful redacted current-state inventory accepted",
+            "service health, canary topology, and exact verification commands recorded",
+            "no runtime configuration, publication, performer outreach, spending, or irreversible action",
         ],
-        evidence=["internal brief", "source manifest", "pilot metrics", "human acceptance"],
+        evidence=["inventory artifact", "command/status manifest", "pilot metrics", "human acceptance"],
     )
     return [*preflight, synthesis, approval, *canary, memory, verify, productive]
 
 
-def build_plan(mode: str, approved_company: str | None, mutation_budget: int) -> dict[str, Any]:
+def build_plan(
+    mode: str,
+    approved_company: str | None,
+    mutation_budget: int,
+    approval_id: str | None,
+    manifest_sha256: str | None,
+    approval_expires_at: str | None,
+) -> dict[str, Any]:
     tasks = build_tasks()
-    canary_enabled = mode == "canary"
+    canary_mode = mode == "canary"
     estimated_mutations = sum(item["estimatedMutations"] for item in tasks)
+    eligibility: dict[str, bool] = {}
     for item in tasks:
-        item["enabled"] = item["mutationClass"] == "read-only" or canary_enabled
+        mode_allows = item["mutationClass"] == "read-only" or canary_mode
+        parents_allow = all(eligibility.get(parent, False) for parent in item["parents"])
+        item["executionEligible"] = mode_allows and parents_allow
+        eligibility[item["id"]] = item["executionEligible"]
     return {
         "schema": SCHEMA,
         "mode": mode,
         "approvedCompany": approved_company,
         "mutationBudget": mutation_budget,
         "estimatedMutations": estimated_mutations,
-        "budgetRemaining": mutation_budget - estimated_mutations if canary_enabled else 0,
+        "budgetRemaining": mutation_budget - estimated_mutations if canary_mode else 0,
+        "approval": {
+            "id": approval_id,
+            "manifestSha256": manifest_sha256,
+            "expiresAt": approval_expires_at,
+        },
         "executionPolicy": {
             "executesTasks": False,
             "networkAccess": False,
@@ -252,6 +271,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--mode", choices=["read-only", "canary"], default="read-only")
     parser.add_argument("--approved-company")
     parser.add_argument("--mutation-budget", type=int, default=0)
+    parser.add_argument("--approval-id")
+    parser.add_argument("--manifest-sha256")
+    parser.add_argument("--approval-expires-at")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args(argv)
     if args.mode == "canary":
@@ -262,14 +284,41 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                 "--mutation-budget must be at least "
                 f"{REQUIRED_CANARY_MUTATION_BUDGET} for the complete canary plan"
             )
-    elif args.approved_company or args.mutation_budget:
+        if not args.approval_id:
+            parser.error("--approval-id is required in canary mode")
+        if not args.manifest_sha256 or not re.fullmatch(r"[0-9a-fA-F]{64}", args.manifest_sha256):
+            parser.error("--manifest-sha256 must be a 64-character hexadecimal SHA-256 in canary mode")
+        if not args.approval_expires_at:
+            parser.error("--approval-expires-at is required in canary mode")
+        try:
+            expires = datetime.fromisoformat(args.approval_expires_at.replace("Z", "+00:00"))
+        except ValueError:
+            parser.error("--approval-expires-at must be an RFC3339 timestamp")
+        if expires.tzinfo is None or expires <= datetime.now(timezone.utc):
+            parser.error("--approval-expires-at must be a future timezone-aware timestamp")
+    elif any(
+        (
+            args.approved_company,
+            args.mutation_budget,
+            args.approval_id,
+            args.manifest_sha256,
+            args.approval_expires_at,
+        )
+    ):
         parser.error("canary scope arguments require --mode canary")
     return args
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    plan = build_plan(args.mode, args.approved_company, args.mutation_budget)
+    plan = build_plan(
+        args.mode,
+        args.approved_company,
+        args.mutation_budget,
+        args.approval_id,
+        args.manifest_sha256,
+        args.approval_expires_at,
+    )
     rendered = json.dumps(plan, indent=2, sort_keys=True) + "\n"
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)

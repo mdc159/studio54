@@ -76,7 +76,12 @@ and artifact transport.
 
 ## Current verified Studio54 state
 
-Read-only inspection on 2026-07-11 found:
+The following values are a **dated read-only operator observation from
+2026-07-11**, collected from the local Paperclip health and company-scoped API
+endpoints during architecture archaeology. They are not yet a durable
+repository proof and must be refreshed by Stage 1 of the completion program,
+which writes a redacted inventory and command/status manifest before any
+canary mutation:
 
 - Paperclip `0.3.1`, private/local-trusted and healthy;
 - 17 preserved proof/model-comparison companies;
@@ -136,7 +141,8 @@ safety claims, or perform irreversible actions.
 
 ## First productive pilot
 
-After the disposable formal-org canary is green, run one research-only 1215
-issue: prepare an evidence-backed archive-to-campaign candidate brief. It must
-produce an internal artifact only. Public action remains human-approved and out
-of scope.
+After the disposable formal-org canary is green, run the canonical productive
+pilot: generate a redacted current-state inventory for the 1215 prototype in an
+isolated worktree, with observed service health, canary topology, and exact
+verification commands. It remains an internal artifact only. Public action is
+human-approved and out of scope.

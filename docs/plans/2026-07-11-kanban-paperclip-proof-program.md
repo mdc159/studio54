@@ -6,6 +6,8 @@
 
 **Architecture:** Paperclip remains the company/accountability system under test. Hermes Kanban coordinates experiment execution on the Studio54 host, and existing repo-owned proof scripts collect evidence. n8n is introduced only after the underlying Paperclip/Hermes behavior is green, then owns deterministic triggers, callbacks, retries, and artifact routing. All mutation is fail-closed behind an explicit canary approval; plan generation and inventory are read-only by default.
 
+**Canonical experiment specification:** [Paperclip Completion Proof Program](../proofs/paperclip-kanban-completion-program.md). This implementation plan sequences code and validation work; if a detail differs, the canonical proof specification wins.
+
 **Tech Stack:** Hermes Agent Kanban, Paperclip 0.3.1, direct `hermes_local`, Python 3.12+, `uv`, existing Studio54 proof scripts, JSON proof artifacts, optional n8n after core proofs pass.
 
 ---
@@ -90,7 +92,7 @@ The script must:
 - emit JSON to stdout by default;
 - optionally write to `--output`;
 - accept `--mode read-only|canary`;
-- require `--approved-company` and a `--mutation-budget` of at least 12 for canary mode;
+- require `--approved-company`, a `--mutation-budget` of at least 12, a durable `--approval-id`, a 64-hex `--manifest-sha256`, and a future RFC3339 `--approval-expires-at` for canary mode;
 - calculate the twelve bounded planned mutations and reject under-budget plans;
 - never call Paperclip, Kanban, n8n, Docker, or a network endpoint;
 - return non-zero for invalid canary arguments;
@@ -117,8 +119,11 @@ Expected: PASS.
 Verify:
 
 ```text
-./bin/1215 proof paperclip-plan --json
-./bin/1215 proof paperclip-plan --json --mode canary --approved-company <name> --mutation-budget 12
+./bin/1215 proof paperclip-plan
+./bin/1215 proof paperclip-plan --mode canary \
+  --approved-company <name> --mutation-budget 12 \
+  --approval-id <durable-id> --manifest-sha256 <64-hex-sha256> \
+  --approval-expires-at <future-rfc3339>
 ```
 
 The CLI must pass arguments to the generator and return its status without executing the graph.
@@ -198,9 +203,10 @@ Required canary shape:
 
 ```text
 Human board
-└── CEO (reportsTo = null, role = ceo)
-    └── Manager (reportsTo = CEO)
-        └── Worker (reportsTo = Manager)
+└── CEO / Pilot Sponsor (reportsTo = null, role = ceo)
+    └── Program Manager (reportsTo = CEO)
+        ├── Proof Engineer (reportsTo = Program Manager)
+        └── Independent Verifier (reportsTo = Program Manager)
 ```
 
 Required tests:
@@ -225,7 +231,9 @@ Required tests:
 Suggested issue:
 
 ```text
-Prepare one evidence-backed archive-to-campaign candidate brief.
+Generate a redacted current-state inventory for the 1215 prototype in an
+isolated worktree, including observed service health, canary Paperclip topology,
+and exact verification commands. Do not change runtime configuration.
 ```
 
 Boundaries:

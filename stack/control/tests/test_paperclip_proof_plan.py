@@ -8,6 +8,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "scripts" / "proof" / "plan-paperclip-kanban-proof.py"
+FUTURE_EXPIRY = "2099-01-01T00:00:00Z"
+MANIFEST_SHA256 = "a" * 64
+CANARY_ARGS = (
+    "--mode", "canary",
+    "--approved-company", "Paperclip Formal Org Canary",
+    "--mutation-budget", "12",
+    "--approval-id", "approval-test-001",
+    "--manifest-sha256", MANIFEST_SHA256,
+    "--approval-expires-at", FUTURE_EXPIRY,
+)
 
 
 def run_plan(*args: str) -> subprocess.CompletedProcess[str]:
@@ -21,7 +31,7 @@ def run_plan(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_read_only_plan_is_valid_acyclic_and_mutation_gated() -> None:
+def test_read_only_plan_is_valid_acyclic_and_transitively_gated() -> None:
     result = run_plan()
 
     assert result.returncode == 0, result.stderr
@@ -30,6 +40,7 @@ def test_read_only_plan_is_valid_acyclic_and_mutation_gated() -> None:
     assert plan["mode"] == "read-only"
     assert plan["approvedCompany"] is None
     assert plan["mutationBudget"] == 0
+    assert plan["approval"] == {"id": None, "manifestSha256": None, "expiresAt": None}
 
     tasks = plan["tasks"]
     assert tasks
@@ -44,10 +55,17 @@ def test_read_only_plan_is_valid_acyclic_and_mutation_gated() -> None:
         assert task["acceptanceCriteria"]
         assert task["evidenceRequired"]
         assert all(parent in by_id for parent in task["parents"])
-        if task["mutationClass"] == "canary":
+        if task["estimatedMutations"]:
             assert task["humanApprovalRequired"] is True
             assert "approval-gate" in task["parents"]
-            assert task["enabled"] is False
+        if task["executionEligible"]:
+            assert all(by_id[parent]["executionEligible"] for parent in task["parents"])
+
+    assert by_id["approval-gate"]["executionEligible"] is False
+    assert by_id["bootstrap-formal-org"]["executionEligible"] is False
+    assert by_id["prove-memory-isolation"]["executionEligible"] is False
+    assert by_id["verify-canary"]["executionEligible"] is False
+    assert by_id["pilot-1215-inventory"]["executionEligible"] is False
 
     visiting: set[str] = set()
     visited: set[str] = set()
@@ -79,14 +97,10 @@ def test_read_only_plan_is_valid_acyclic_and_mutation_gated() -> None:
         assert forbidden not in serialized
 
 
-def test_canary_mode_requires_explicit_scope() -> None:
+def test_canary_mode_requires_complete_durable_scope() -> None:
     missing = run_plan("--mode", "canary")
     assert missing.returncode != 0
     assert "--approved-company" in missing.stderr
-
-    no_budget = run_plan("--mode", "canary", "--approved-company", "Paperclip Formal Org Canary")
-    assert no_budget.returncode != 0
-    assert "--mutation-budget" in no_budget.stderr
 
     under_budget = run_plan(
         "--mode", "canary", "--approved-company", "Paperclip Formal Org Canary",
@@ -95,16 +109,33 @@ def test_canary_mode_requires_explicit_scope() -> None:
     assert under_budget.returncode != 0
     assert "at least 12" in under_budget.stderr
 
-
-def test_canary_mode_enables_only_scoped_mutation_tasks() -> None:
-    result = run_plan(
-        "--mode",
-        "canary",
-        "--approved-company",
-        "Paperclip Formal Org Canary",
-        "--mutation-budget",
-        "12",
+    no_approval = run_plan(
+        "--mode", "canary", "--approved-company", "Paperclip Formal Org Canary",
+        "--mutation-budget", "12",
     )
+    assert no_approval.returncode != 0
+    assert "--approval-id" in no_approval.stderr
+
+    bad_hash = run_plan(
+        "--mode", "canary", "--approved-company", "Paperclip Formal Org Canary",
+        "--mutation-budget", "12", "--approval-id", "approval-test-001",
+        "--manifest-sha256", "not-a-sha", "--approval-expires-at", FUTURE_EXPIRY,
+    )
+    assert bad_hash.returncode != 0
+    assert "64-character hexadecimal" in bad_hash.stderr
+
+    expired = run_plan(
+        "--mode", "canary", "--approved-company", "Paperclip Formal Org Canary",
+        "--mutation-budget", "12", "--approval-id", "approval-test-001",
+        "--manifest-sha256", MANIFEST_SHA256,
+        "--approval-expires-at", "2020-01-01T00:00:00Z",
+    )
+    assert expired.returncode != 0
+    assert "future timezone-aware" in expired.stderr
+
+
+def test_canary_mode_enables_only_durably_approved_graph() -> None:
+    result = run_plan(*CANARY_ARGS)
 
     assert result.returncode == 0, result.stderr
     plan = json.loads(result.stdout)
@@ -113,10 +144,15 @@ def test_canary_mode_enables_only_scoped_mutation_tasks() -> None:
     assert plan["mutationBudget"] == 12
     assert plan["estimatedMutations"] == 12
     assert plan["budgetRemaining"] == 0
-    mutation_tasks = [task for task in plan["tasks"] if task["mutationClass"] == "canary"]
+    assert plan["approval"] == {
+        "id": "approval-test-001",
+        "manifestSha256": MANIFEST_SHA256,
+        "expiresAt": FUTURE_EXPIRY,
+    }
+    mutation_tasks = [task for task in plan["tasks"] if task["estimatedMutations"]]
     assert sum(task["estimatedMutations"] for task in mutation_tasks) == plan["estimatedMutations"]
     assert mutation_tasks
-    assert all(task["enabled"] is True for task in mutation_tasks)
+    assert all(task["executionEligible"] is True for task in plan["tasks"])
     assert all(task["humanApprovalRequired"] is True for task in mutation_tasks)
 
 

@@ -132,12 +132,13 @@ Generate the host-local Kanban proof DAG without executing tasks or mutating
 Paperclip:
 
 ```bash
-./bin/1215 proof paperclip-plan --json \
+./bin/1215 proof paperclip-plan \
   --output .artifacts/paperclip-proof-plan/read-only-plan.json
 ```
 
-Company bootstrap now fails closed. The default command emits a dry-run plan;
-a live bootstrap requires both explicit flags:
+Company bootstrap now fails closed. The default command emits a machine-readable
+`DRY_RUN` plan and exits `3` (`planned, not applied`) so automation cannot mistake
+a plan for a completed mutation. A live bootstrap requires both explicit flags:
 
 ```bash
 ./bin/1215 company bootstrap --template-file <template.json> [bootstrap args]
@@ -146,8 +147,9 @@ a live bootstrap requires both explicit flags:
 ```
 
 The CLI confirmation is a local safety interlock, not business approval. A live
-canary still requires the separately approved company scope and mutation budget
-defined in the proof program.
+canary plan additionally requires the approved company, mutation budget, durable
+approval ID, 64-character manifest SHA-256, and a future RFC3339 approval expiry
+defined in the canonical proof program.
 
 The [2026-05-01 three-way audit](docs/audits/2026-05-01-three-way/summary.md)
 cross-checked 2258 claims extracted from all owned docs against the codebase

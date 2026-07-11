@@ -6,7 +6,7 @@ Status: implementation-ready design; **read-only only until a separately approve
 
 Use Hermes Kanban as the durable experiment coordinator and Paperclip 0.3.1 as the system of record for company structure, goals, projects, issues, approvals, agent runs, and terminal issue state. n8n may transport events, retry deterministic delivery, and collect evidence, but may not decide, approve, retry autonomous business work, or mark Paperclip work complete.
 
-The existing fleet (17 proof companies, 24 `hermes_local` agents, 49 issues) is baseline evidence, not a mutation target. The first mutation must occur in one newly created canary company after a human approves a canary manifest. Existing companies and issues remain read-only throughout the pilot.
+The existing fleet counts (17 proof companies, 24 `hermes_local` agents, 49 issues) are a dated 2026-07-11 read-only operator observation, not yet a repository-owned proof artifact. Stage K00 must refresh them into the redacted baseline inventory before any mutation. The observed fleet is baseline evidence, not a mutation target. The first mutation must occur in one newly created canary company after a human approves a canary manifest. Existing companies and issues remain read-only throughout the pilot.
 
 ### Completion claim
 
@@ -117,9 +117,9 @@ Assignees/workspaces:
 - K11: `proof-engineer`, dedicated git worktree.
 - All child tasks inherit the exact tenant and board. No worker may create an unbounded descendant; K10 may create exactly two Paperclip children.
 
-Retry policy: dispatcher attempts are capped at three per Kanban task with backoff 30 s, 120 s, 480 s. A retry must inspect prior run outcome and use the same idempotency key. `spawn_failed` blocks immediately; timeout/crash may retry. The third failure blocks for human disposition. Never delete and recreate a Paperclip issue to “retry.”
+**Proposed proof-harness policy (not verified built-in Kanban behavior):** cap dispatcher attempts at three per Kanban task with backoff 30 s, 120 s, and 480 s. The harness implementation must configure and behaviorally test these values before claiming them. A retry must inspect the prior run outcome and use the same idempotency key. `spawn_failed` is proposed to block immediately; timeout/crash may retry. The third failure blocks for human disposition. Never delete and recreate a Paperclip issue to “retry.”
 
-Restart procedure: stop the chosen process only after its run/issue IDs and checkpoint are durable; start it; dispatcher reclaims stale `in_progress` work after the configured lease; worker reads task/run history and resumes. A resumed task must not recreate company, agent, goal, project, approval, issue, comment, or commit when its idempotency record already exists.
+**Proposed restart policy:** stop the chosen process only after its run/issue IDs and checkpoint are durable; then start it and verify the implemented dispatcher/worker recovery mechanism. Automatic stale-lease reclamation is a hypothesis to test, not a currently proven Hermes Kanban guarantee. The worker must read task/run history and resume. A resumed task must not recreate company, agent, goal, project, approval, issue, comment, or commit when its idempotency record already exists.
 
 ## 6. Productive first 1215 pilot
 

@@ -156,10 +156,12 @@ def build_parser() -> argparse.ArgumentParser:
         "paperclip-plan",
         help="Render a non-executing Kanban DAG for completing Paperclip proofs.",
     )
-    proof_plan.add_argument("--json", action="store_true", dest="as_json")
     proof_plan.add_argument("--mode", choices=["read-only", "canary"], default="read-only")
     proof_plan.add_argument("--approved-company", default=None)
     proof_plan.add_argument("--mutation-budget", type=int, default=0)
+    proof_plan.add_argument("--approval-id", default=None)
+    proof_plan.add_argument("--manifest-sha256", default=None)
+    proof_plan.add_argument("--approval-expires-at", default=None)
     proof_plan.add_argument("--output", type=Path, default=None)
 
     company = subparsers.add_parser("company", help="Run company operator commands.")
@@ -495,6 +497,9 @@ def cmd_proof_paperclip_plan(
     mode: str,
     approved_company: str | None,
     mutation_budget: int,
+    approval_id: str | None,
+    manifest_sha256: str | None,
+    approval_expires_at: str | None,
     output: Path | None,
 ) -> int:
     script = _script_path("scripts", "proof", "plan-paperclip-kanban-proof.py")
@@ -506,6 +511,12 @@ def cmd_proof_paperclip_plan(
         cmd.extend(["--approved-company", approved_company])
     if mutation_budget:
         cmd.extend(["--mutation-budget", str(mutation_budget)])
+    if approval_id is not None:
+        cmd.extend(["--approval-id", approval_id])
+    if manifest_sha256 is not None:
+        cmd.extend(["--manifest-sha256", manifest_sha256])
+    if approval_expires_at is not None:
+        cmd.extend(["--approval-expires-at", approval_expires_at])
     if output is not None:
         cmd.extend(["--output", str(output)])
     result = subprocess.run(
@@ -565,7 +576,7 @@ def cmd_company_bootstrap(
             "command": _redact_command(cmd),
             "applyGate": "repeat with --apply --confirm-mutation APPLY",
         }, indent=2, sort_keys=True))
-        return 0
+        return 3
     if confirm_mutation != "APPLY":
         print("error: --apply requires --confirm-mutation APPLY", file=sys.stderr)
         return 2
@@ -631,6 +642,9 @@ def main(argv: list[str] | None = None) -> int:
                 mode=args.mode,
                 approved_company=args.approved_company,
                 mutation_budget=args.mutation_budget,
+                approval_id=args.approval_id,
+                manifest_sha256=args.manifest_sha256,
+                approval_expires_at=args.approval_expires_at,
                 output=args.output,
             )
     if args.command == "company":
