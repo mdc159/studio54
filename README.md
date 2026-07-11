@@ -88,6 +88,9 @@ superseded the stale `langfuse-sidecar` PR.
 
 Start here:
 
+- [Orchestration Responsibility Model](docs/architecture/orchestration-responsibility-model.md)
+  defines the authority boundaries among Donna, Paperclip, Hermes Kanban, n8n,
+  and the event plane, and links the Kanban-coordinated Paperclip proof program.
 - [Reference Node Target](docs/architecture/reference-node-target.md) explains
   the correct private-first node shape.
 - [Current State](docs/architecture/current-state.md) records what is actually
@@ -122,6 +125,31 @@ for the current execution baseline.
 
 Historical or aspirational design docs still exist, but the reference-node and
 contract docs above are the practical starting point for current work.
+
+### Paperclip proof planning and mutation gate
+
+Generate the host-local Kanban proof DAG without executing tasks or mutating
+Paperclip:
+
+```bash
+./bin/1215 proof paperclip-plan \
+  --output .artifacts/paperclip-proof-plan/read-only-plan.json
+```
+
+Company bootstrap now fails closed. The default command emits a machine-readable
+`DRY_RUN` plan and exits `3` (`planned, not applied`) so automation cannot mistake
+a plan for a completed mutation. A live bootstrap requires both explicit flags:
+
+```bash
+./bin/1215 company bootstrap --template-file <template.json> [bootstrap args]
+./bin/1215 company bootstrap --template-file <template.json> \
+  --apply --confirm-mutation APPLY [bootstrap args]
+```
+
+The CLI confirmation is a local safety interlock, not business approval. A live
+canary plan additionally requires the approved company, mutation budget, durable
+approval ID, 64-character manifest SHA-256, and a future RFC3339 approval expiry
+defined in the canonical proof program.
 
 The [2026-05-01 three-way audit](docs/audits/2026-05-01-three-way/summary.md)
 cross-checked 2258 claims extracted from all owned docs against the codebase

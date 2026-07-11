@@ -18,6 +18,30 @@ Primary related docs:
 - Shared knowledge repo:
   [agent-knowledge-exchange.md](agent-knowledge-exchange.md)
 
+## Operator CLI compatibility and mutation gate
+
+The repo-owned operator wrapper changed from immediate execution to fail-closed
+planning. This is an intentional breaking safety change:
+
+```bash
+./bin/1215 company bootstrap --template-file <template.json> [bootstrap args]
+# Prints studio54.company-bootstrap-plan.v1 and exits 3: planned, not applied.
+
+./bin/1215 company bootstrap --template-file <template.json> \
+  --apply --confirm-mutation APPLY [bootstrap args]
+# Invokes the mutating bootstrap and returns its exit code.
+```
+
+Automation must inspect both the exit code and JSON `status`. Exit `0` means an
+explicitly confirmed bootstrap command succeeded; exit `3` means only a dry-run
+plan was produced. The plan redacts `--api-token` values. The confirmation flag
+is a local interlock, not business approval; live canaries still require the
+durable approval manifest defined in the
+[Paperclip Completion Proof Program](../proofs/paperclip-kanban-completion-program.md).
+
+Direct calls to the Python script remain mutating and are reserved for audited
+operator/runbook paths. New automation should use `./bin/1215`.
+
 ## Minimal Path
 
 The smallest reference bootstrap path is one agent:

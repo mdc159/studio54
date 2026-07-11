@@ -152,6 +152,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     proof_node.add_argument("--target-name", default="simulated-vps-bootstrap")
     proof_node.add_argument("--environment", default="local")
+    proof_plan = proof_subparsers.add_parser(
+        "paperclip-plan",
+        help="Render a non-executing Kanban DAG for completing Paperclip proofs.",
+    )
+    proof_plan.add_argument("--mode", choices=["read-only", "canary"], default="read-only")
+    proof_plan.add_argument("--approved-company", default=None)
+    proof_plan.add_argument("--mutation-budget", type=int, default=0)
+    proof_plan.add_argument("--approval-id", default=None)
+    proof_plan.add_argument("--manifest-sha256", default=None)
+    proof_plan.add_argument("--approval-expires-at", default=None)
+    proof_plan.add_argument("--output", type=Path, default=None)
 
     company = subparsers.add_parser("company", help="Run company operator commands.")
     company_subparsers = company.add_subparsers(dest="company_command", required=True)
@@ -160,6 +171,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Bootstrap a Paperclip/Hermes company from a JSON template.",
     )
     company_bootstrap.add_argument("--template-file", type=Path, required=True)
+    company_bootstrap.add_argument(
+        "--apply",
+        action="store_true",
+        help="Execute the mutating bootstrap (default: print a dry-run plan).",
+    )
+    company_bootstrap.add_argument(
+        "--confirm-mutation",
+        default=None,
+        metavar="APPLY",
+        help="Required with --apply; must be exactly APPLY.",
+    )
 
     return parser
 
@@ -470,7 +492,72 @@ def cmd_proof_node(
     return 0 if status == "PASS" else 1
 
 
-def cmd_company_bootstrap(template_file: Path, bootstrap_args: list[str]) -> int:
+def cmd_proof_paperclip_plan(
+    *,
+    mode: str,
+    approved_company: str | None,
+    mutation_budget: int,
+    approval_id: str | None,
+    manifest_sha256: str | None,
+    approval_expires_at: str | None,
+    output: Path | None,
+) -> int:
+    script = _script_path("scripts", "proof", "plan-paperclip-kanban-proof.py")
+    if not script.exists():
+        print(f"error: missing {script}", file=sys.stderr)
+        return 2
+    cmd = [sys.executable, str(script), "--mode", mode]
+    if approved_company is not None:
+        cmd.extend(["--approved-company", approved_company])
+    if mutation_budget:
+        cmd.extend(["--mutation-budget", str(mutation_budget)])
+    if approval_id is not None:
+        cmd.extend(["--approval-id", approval_id])
+    if manifest_sha256 is not None:
+        cmd.extend(["--manifest-sha256", manifest_sha256])
+    if approval_expires_at is not None:
+        cmd.extend(["--approval-expires-at", approval_expires_at])
+    if output is not None:
+        cmd.extend(["--output", str(output)])
+    result = subprocess.run(
+        cmd,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if result.stdout:
+        print(result.stdout, end="")
+    if result.stderr:
+        print(result.stderr, end="", file=sys.stderr)
+    return result.returncode
+
+
+def _redact_command(command: list[str]) -> list[str]:
+    sensitive_flags = {"--api-token"}
+    redacted = list(command)
+    index = 0
+    while index < len(redacted):
+        value = redacted[index]
+        if value in sensitive_flags and index + 1 < len(redacted):
+            redacted[index + 1] = "[REDACTED]"
+            index += 2
+            continue
+        for flag in sensitive_flags:
+            if value.startswith(f"{flag}="):
+                redacted[index] = f"{flag}=[REDACTED]"
+                break
+        index += 1
+    return redacted
+
+
+def cmd_company_bootstrap(
+    template_file: Path,
+    bootstrap_args: list[str],
+    *,
+    apply: bool,
+    confirm_mutation: str | None,
+) -> int:
     script = _script_path(
         "stack",
         "prototype-local",
@@ -481,6 +568,18 @@ def cmd_company_bootstrap(template_file: Path, bootstrap_args: list[str]) -> int
         print(f"error: missing {script}", file=sys.stderr)
         return 2
     cmd = [sys.executable, str(script), "--template-file", str(template_file), *bootstrap_args]
+    if not apply:
+        print(json.dumps({
+            "schema": "studio54.company-bootstrap-plan.v1",
+            "status": "DRY_RUN",
+            "mutationRequired": True,
+            "command": _redact_command(cmd),
+            "applyGate": "repeat with --apply --confirm-mutation APPLY",
+        }, indent=2, sort_keys=True))
+        return 3
+    if confirm_mutation != "APPLY":
+        print("error: --apply requires --confirm-mutation APPLY", file=sys.stderr)
+        return 2
     result = subprocess.run(cmd)
     return result.returncode
 
@@ -538,9 +637,24 @@ def main(argv: list[str] | None = None) -> int:
                 target_name=args.target_name,
                 environment=args.environment,
             )
+        if args.proof_command == "paperclip-plan":
+            return cmd_proof_paperclip_plan(
+                mode=args.mode,
+                approved_company=args.approved_company,
+                mutation_budget=args.mutation_budget,
+                approval_id=args.approval_id,
+                manifest_sha256=args.manifest_sha256,
+                approval_expires_at=args.approval_expires_at,
+                output=args.output,
+            )
     if args.command == "company":
         if args.company_command == "bootstrap":
-            return cmd_company_bootstrap(args.template_file, unknown_args)
+            return cmd_company_bootstrap(
+                args.template_file,
+                unknown_args,
+                apply=args.apply,
+                confirm_mutation=args.confirm_mutation,
+            )
 
     parser.error(f"unknown command: {args.command}")
     return 2

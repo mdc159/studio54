@@ -125,7 +125,47 @@ def test_proof_node_json_fails_when_collector_omits_path(monkeypatch, capsys) ->
     assert out["verification"]["errors"] == ["collector did not report a proof path"]
 
 
-def test_company_bootstrap_wraps_template_script(monkeypatch, tmp_path) -> None:
+def test_paperclip_plan_cli_forwards_scope_and_output(monkeypatch, tmp_path, capsys) -> None:
+    output = tmp_path / "plan.json"
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, **kwargs):  # noqa: ANN001, ANN202
+        calls.append([str(part) for part in cmd])
+        return SimpleNamespace(returncode=0, stdout='{"schema":"studio54.paperclip-kanban-proof-plan.v1"}\n', stderr="")
+
+    monkeypatch.setattr(cli.subprocess, "run", fake_run)
+    assert cli.main([
+        "proof", "paperclip-plan", "--mode", "canary",
+        "--approved-company", "Paperclip Formal Org Canary",
+        "--mutation-budget", "12",
+        "--approval-id", "approval-test-001",
+        "--manifest-sha256", "a" * 64,
+        "--approval-expires-at", "2099-01-01T00:00:00Z",
+        "--output", str(output),
+    ]) == 0
+    command = calls[0]
+    assert command[1].endswith("plan-paperclip-kanban-proof.py")
+    assert command[-14:] == [
+        "--mode", "canary", "--approved-company", "Paperclip Formal Org Canary",
+        "--mutation-budget", "12", "--approval-id", "approval-test-001",
+        "--manifest-sha256", "a" * 64,
+        "--approval-expires-at", "2099-01-01T00:00:00Z",
+        "--output", str(output),
+    ]
+    assert json.loads(capsys.readouterr().out)["schema"] == "studio54.paperclip-kanban-proof-plan.v1"
+
+
+def test_paperclip_plan_cli_propagates_generator_failure(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        cli.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(returncode=2, stdout="", stderr="scope invalid\n"),
+    )
+    assert cli.main(["proof", "paperclip-plan"]) == 2
+    assert "scope invalid" in capsys.readouterr().err
+
+
+def test_company_bootstrap_defaults_to_dry_run(monkeypatch, tmp_path, capsys) -> None:
     template = tmp_path / "company.json"
     template.write_text("{}")
     calls: list[list[str]] = []
@@ -145,8 +185,86 @@ def test_company_bootstrap_wraps_template_script(monkeypatch, tmp_path) -> None:
             "--base-url",
             "http://paperclip.test",
         ]
-    ) == 0
-    command = calls[0]
+    ) == 3
+    assert calls == []
+    plan = json.loads(capsys.readouterr().out)
+    assert plan["schema"] == "studio54.company-bootstrap-plan.v1"
+    assert plan["status"] == "DRY_RUN"
+    assert plan["mutationRequired"] is True
+    command = plan["command"]
     assert command[1].endswith("bootstrap_paperclip_hermes_company.py")
     assert command[2:4] == ["--template-file", str(template)]
     assert command[-2:] == ["--base-url", "http://paperclip.test"]
+
+
+def test_company_bootstrap_dry_run_redacts_api_token(monkeypatch, tmp_path, capsys) -> None:
+    template = tmp_path / "company.json"
+    template.write_text("{}")
+    monkeypatch.setattr(
+        cli.subprocess,
+        "run",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("must not run")),
+    )
+
+    token_sentinel = "test-token"
+    assert cli.main([
+        "company", "bootstrap", "--template-file", str(template),
+        "--api-token", token_sentinel,
+    ]) == 3
+    rendered = capsys.readouterr().out
+    assert token_sentinel not in rendered
+    plan = json.loads(rendered)
+    token_index = plan["command"].index("--api-token")
+    assert plan["command"][token_index + 1] == "[REDACTED]"
+
+
+def test_company_bootstrap_dry_run_redacts_equals_api_token(monkeypatch, tmp_path, capsys) -> None:
+    template = tmp_path / "company.json"
+    template.write_text("{}")
+    monkeypatch.setattr(
+        cli.subprocess,
+        "run",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("must not run")),
+    )
+
+    token_sentinel = "equals-test"
+    assert cli.main([
+        "company", "bootstrap", "--template-file", str(template),
+        f"--api-token={token_sentinel}",
+    ]) == 3
+    rendered = capsys.readouterr().out
+    assert token_sentinel not in rendered
+    plan = json.loads(rendered)
+    assert "--api-token=[REDACTED]" in plan["command"]
+
+
+def test_company_bootstrap_requires_confirmation(monkeypatch, tmp_path, capsys) -> None:
+    template = tmp_path / "company.json"
+    template.write_text("{}")
+    monkeypatch.setattr(
+        cli.subprocess,
+        "run",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("must not run")),
+    )
+
+    assert cli.main([
+        "company", "bootstrap", "--template-file", str(template), "--apply",
+    ]) == 2
+    assert "--confirm-mutation APPLY" in capsys.readouterr().err
+
+
+def test_company_bootstrap_runs_after_explicit_confirmation(monkeypatch, tmp_path) -> None:
+    template = tmp_path / "company.json"
+    template.write_text("{}")
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, **kwargs):  # noqa: ANN001, ANN202
+        calls.append([str(part) for part in cmd])
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(cli.subprocess, "run", fake_run)
+    assert cli.main([
+        "company", "bootstrap", "--template-file", str(template),
+        "--apply", "--confirm-mutation", "APPLY",
+    ]) == 0
+    assert len(calls) == 1
